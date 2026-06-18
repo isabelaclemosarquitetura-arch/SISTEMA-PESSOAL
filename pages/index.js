@@ -8,18 +8,27 @@ import Exercicios from '../components/Exercicios'
 import Anotacoes from '../components/Anotacoes'
 
 const TABS = [
-  { id: 'dashboard', label: 'Dashboard', icon: '⊞' },
-  { id: 'agenda', label: 'Agenda', icon: '📅' },
-  { id: 'financeiro', label: 'Financeiro', icon: '💰' },
-  { id: 'habitos', label: 'Hábitos', icon: '✅' },
-  { id: 'metas', label: 'Metas', icon: '🎯' },
-  { id: 'exercicios', label: 'Exercícios', icon: '💪' },
-  { id: 'anotacoes', label: 'Anotações', icon: '📝' },
+  { id: 'dashboard', label: 'Dashboard', icon: '◎' },
+  { id: 'agenda', label: 'Agenda', icon: '□' },
+  { id: 'financeiro', label: 'Financeiro', icon: '$' },
+  { id: 'habitos', label: 'Hábitos', icon: '✓' },
+  { id: 'metas', label: 'Metas', icon: '◇' },
+  { id: 'exercicios', label: 'Exercícios', icon: '↟' },
+  { id: 'anotacoes', label: 'Anotações', icon: '✎' },
 ]
 
 const INITIAL_DATA = {
   agenda: {},
   financeiro: [],
+  investimentos: [],
+  habitosLista: [
+    'Beber 2L de água',
+    'Exercício físico',
+    'Leitura 30 min',
+    'Meditação',
+    'Dormir até 23h',
+    'Comer saudável',
+  ],
   habitos: {},
   metas: [
     { id: 1, area: 'Carreira/Estudo', meta: '', porque: '', prazo: '', progresso: 0, status: 'Pendente', acoes: '', resultado: '' },
@@ -33,13 +42,13 @@ const INITIAL_DATA = {
   ],
   exercicios: {
     plano: {
-      'Flexão de braço':    { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Agachamento':        { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Abdominal Crunch':   { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Prancha (Plank)':    { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Burpee':             { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Polichinelo':        { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Afundo (Lunge)':     { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
+      'Flexão de braço': { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
+      'Agachamento': { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
+      'Abdominal Crunch': { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
+      'Prancha (Plank)': { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
+      'Burpee': { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
+      'Polichinelo': { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
+      'Afundo (Lunge)': { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
     },
     historico: []
   },
@@ -55,8 +64,11 @@ export default function Home() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        // merge with initial to add new keys if needed
-        setData({ ...INITIAL_DATA, ...parsed })
+        const nextData = { ...INITIAL_DATA, ...parsed }
+        if (!Array.isArray(nextData.habitosLista)) {
+          nextData.habitosLista = INITIAL_DATA.habitosLista
+        }
+        setData(nextData)
       } catch {
         setData(INITIAL_DATA)
       }
@@ -71,7 +83,9 @@ export default function Home() {
   }
 
   const update = (section, value) => {
-    const newData = { ...data, [section]: value }
+    const newData = typeof section === 'object'
+      ? { ...data, ...section }
+      : { ...data, [section]: value }
     save(newData)
   }
 
@@ -86,13 +100,14 @@ export default function Home() {
 
   const renderTab = () => {
     switch (tab) {
-      case 'dashboard':   return <Dashboard data={data} setTab={setTab} />
-      case 'agenda':      return <Agenda data={data} update={update} />
-      case 'financeiro':  return <Financeiro data={data} update={update} />
-      case 'habitos':     return <Habitos data={data} update={update} />
-      case 'metas':       return <Metas data={data} update={update} />
-      case 'exercicios':  return <Exercicios data={data} update={update} />
-      case 'anotacoes':   return <Anotacoes data={data} update={update} />
+      case 'dashboard': return <Dashboard data={data} update={update} setTab={setTab} />
+      case 'agenda': return <Agenda data={data} update={update} />
+      case 'financeiro': return <Financeiro data={data} update={update} />
+      case 'habitos': return <Habitos data={data} update={update} />
+      case 'metas': return <Metas data={data} update={update} />
+      case 'exercicios': return <Exercicios data={data} update={update} />
+      case 'anotacoes': return <Anotacoes data={data} update={update} />
+      default: return <Dashboard data={data} update={update} setTab={setTab} />
     }
   }
 

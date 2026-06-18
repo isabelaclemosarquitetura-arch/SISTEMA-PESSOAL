@@ -9,56 +9,89 @@ const HABITOS_DEFAULT = [
   'Comer saudável',
 ]
 
-const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 function daysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate()
 }
 
 function fmtKey(y, m, d) {
-  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+function todayKey(date) {
+  return fmtKey(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
 export default function Habitos({ data, update }) {
   const hoje = new Date()
   const [viewYear, setViewYear] = useState(hoje.getFullYear())
   const [viewMonth, setViewMonth] = useState(hoje.getMonth())
-  const [habitos, setHabitos] = useState(HABITOS_DEFAULT)
   const [novoHabito, setNovoHabito] = useState('')
+  const [editando, setEditando] = useState(null)
+  const [textoEdicao, setTextoEdicao] = useState('')
 
-  const todayKey = fmtKey(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-  const habitosHoje = data.habitos[todayKey] || {}
+  const habitos = Array.isArray(data.habitosLista) && data.habitosLista.length
+    ? data.habitosLista
+    : HABITOS_DEFAULT
+  const keyHoje = todayKey(hoje)
+  const habitosHoje = data.habitos[keyHoje] || {}
+  const feitosHoje = habitos.filter(h => habitosHoje[h]).length
+  const pctHoje = habitos.length ? Math.round((feitosHoje / habitos.length) * 100) : 0
 
-  const toggleHoje = (h) => {
-    const cur = data.habitos[todayKey] || {}
-    const newH = { ...data.habitos, [todayKey]: { ...cur, [h]: !cur[h] } }
-    update('habitos', newH)
-  }
+  const updateLista = (lista) => update('habitosLista', lista)
 
   const toggleDia = (key, h) => {
     const cur = data.habitos[key] || {}
-    const newH = { ...data.habitos, [key]: { ...cur, [h]: !cur[h] } }
-    update('habitos', newH)
+    update('habitos', { ...data.habitos, [key]: { ...cur, [h]: !cur[h] } })
   }
 
-  const totalDias = daysInMonth(viewYear, viewMonth)
-  const dias = Array.from({ length: totalDias }, (_, i) => i + 1)
-
   const addHabito = () => {
-    if (novoHabito.trim() && !habitos.includes(novoHabito.trim())) {
-      setHabitos([...habitos, novoHabito.trim()])
+    const nome = novoHabito.trim()
+    if (nome && !habitos.some(h => h.toLowerCase() === nome.toLowerCase())) {
+      updateLista([...habitos, nome])
       setNovoHabito('')
     }
   }
 
+  const startEdit = (h) => {
+    setEditando(h)
+    setTextoEdicao(h)
+  }
+
+  const saveEdit = () => {
+    const novoNome = textoEdicao.trim()
+    if (!editando || !novoNome) return
+
+    const lista = habitos.map(h => h === editando ? novoNome : h)
+    const habitosAtualizados = Object.fromEntries(
+      Object.entries(data.habitos || {}).map(([dia, valores]) => {
+        if (!Object.prototype.hasOwnProperty.call(valores, editando)) return [dia, valores]
+        const { [editando]: valorAntigo, ...resto } = valores
+        return [dia, { ...resto, [novoNome]: valorAntigo }]
+      })
+    )
+
+    update({ habitosLista: lista, habitos: habitosAtualizados })
+    setEditando(null)
+    setTextoEdicao('')
+  }
+
   const removeHabito = (h) => {
-    setHabitos(habitos.filter(x => x !== h))
+    const lista = habitos.filter(x => x !== h)
+    const habitosAtualizados = Object.fromEntries(
+      Object.entries(data.habitos || {}).map(([dia, valores]) => {
+        const { [h]: _removido, ...resto } = valores
+        return [dia, resto]
+      })
+    )
+    update({ habitosLista: lista, habitos: habitosAtualizados })
   }
 
   const consistencia = (h) => {
     let total = 0
     let done = 0
-    for (let d = 1; d <= totalDias; d++) {
+    for (let d = 1; d <= daysInMonth(viewYear, viewMonth); d++) {
       const k = fmtKey(viewYear, viewMonth, d)
       const dayData = new Date(viewYear, viewMonth, d)
       if (dayData <= hoje) {
@@ -66,68 +99,124 @@ export default function Habitos({ data, update }) {
         if (data.habitos[k]?.[h]) done++
       }
     }
-    return total > 0 ? Math.round((done/total)*100) : 0
+    return total > 0 ? Math.round((done / total) * 100) : 0
+  }
+
+  const streak = (h) => {
+    let count = 0
+    const cursor = new Date(hoje)
+    while (count < 366) {
+      const k = todayKey(cursor)
+      if (!data.habitos[k]?.[h]) break
+      count++
+      cursor.setDate(cursor.getDate() - 1)
+    }
+    return count
   }
 
   const prevMonth = () => {
-    if (viewMonth === 0) { setViewYear(y => y-1); setViewMonth(11) }
-    else setViewMonth(m => m-1)
+    if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
+    else setViewMonth(m => m - 1)
   }
   const nextMonth = () => {
-    if (viewMonth === 11) { setViewYear(y => y+1); setViewMonth(0) }
-    else setViewMonth(m => m+1)
+    if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0) }
+    else setViewMonth(m => m + 1)
   }
+
+  const totalDias = daysInMonth(viewYear, viewMonth)
+  const dias = Array.from({ length: totalDias }, (_, i) => i + 1)
 
   return (
     <>
       <div className="page-header">
         <h2>Rastreador de Hábitos</h2>
-        <p>Marque o que você completou hoje</p>
+        <p>Marque, edite e acompanhe sua consistência diária</p>
       </div>
 
-      {/* Hábitos de hoje */}
+      <div className="grid-3" style={{ marginBottom: 20 }}>
+        <div className="card">
+          <div className="card-title">Conclusão hoje</div>
+          <div className="stat-value" style={{ color: pctHoje === 100 ? 'var(--green)' : 'var(--accent)' }}>{pctHoje}%</div>
+          <div className="stat-label">{feitosHoje}/{habitos.length} hábitos concluídos</div>
+          <div className="progress-bar" style={{ marginTop: 10 }}>
+            <div className="progress-fill" style={{ width: `${pctHoje}%` }} />
+          </div>
+        </div>
+        <div className="card">
+          <div className="card-title">Melhor sequência atual</div>
+          <div className="stat-value" style={{ color: 'var(--blue)' }}>{Math.max(0, ...habitos.map(streak))}</div>
+          <div className="stat-label">dias seguidos</div>
+        </div>
+        <div className="card">
+          <div className="card-title">Hábitos ativos</div>
+          <div className="stat-value">{habitos.length}</div>
+          <div className="stat-label">em acompanhamento</div>
+        </div>
+      </div>
+
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-title">Hoje — {hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+        <div className="card-title">Hoje - {hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
+        <div className="habit-progress-dots">
+          {habitos.map(h => <span key={h} className={habitosHoje[h] ? 'done' : ''} />)}
+        </div>
+        <div className="habit-list">
           {habitos.map(h => (
-            <div key={h} className={`check-item ${habitosHoje[h] ? 'done' : ''}`} style={{ padding: '8px 4px' }}>
-              <input type="checkbox" checked={!!habitosHoje[h]} onChange={() => toggleHoje(h)} />
-              <span style={{ fontSize: 14 }}>{h}</span>
+            <div key={h} className={`habit-manage-row ${habitosHoje[h] ? 'done' : ''}`}>
+              {editando === h ? (
+                <>
+                  <input
+                    type="text"
+                    value={textoEdicao}
+                    onChange={e => setTextoEdicao(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && saveEdit()}
+                  />
+                  <button className="btn btn-primary" onClick={saveEdit}>Salvar</button>
+                  <button className="btn btn-ghost" onClick={() => setEditando(null)}>Cancelar</button>
+                </>
+              ) : (
+                <>
+                  <label className="check-item" style={{ flex: 1 }}>
+                    <input type="checkbox" checked={!!habitosHoje[h]} onChange={() => toggleDia(keyHoje, h)} />
+                    <span>{h}</span>
+                  </label>
+                  <span className="badge badge-blue">{streak(h)}d</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => startEdit(h)}>Editar</button>
+                  <button className="btn btn-danger" onClick={() => removeHabito(h)}>Excluir</button>
+                </>
+              )}
             </div>
           ))}
         </div>
 
-        {/* Adicionar hábito */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+        <div className="inline-form">
           <input
             type="text"
             placeholder="Adicionar novo hábito..."
             value={novoHabito}
             onChange={e => setNovoHabito(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addHabito()}
-            style={{ flex: 1 }}
           />
-          <button className="btn btn-primary" onClick={addHabito}>+ Adicionar</button>
+          <button className="btn btn-primary" onClick={addHabito}>Adicionar</button>
         </div>
       </div>
 
-      {/* Grid mensal */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div className="card-title" style={{ margin: 0 }}>Histórico — {MESES[viewMonth]} {viewYear}</div>
+        <div className="section-header-row">
+          <div className="card-title" style={{ margin: 0 }}>Histórico - {MESES[viewMonth]} {viewYear}</div>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button className="btn btn-ghost" style={{ padding: '5px 10px' }} onClick={prevMonth}>‹</button>
-            <button className="btn btn-ghost" style={{ padding: '5px 10px' }} onClick={nextMonth}>›</button>
+            <button className="btn btn-ghost btn-sm" onClick={prevMonth}>‹</button>
+            <button className="btn btn-ghost btn-sm" onClick={nextMonth}>›</button>
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto' }}>
+        <div className="table-wrap">
           <table style={{ fontSize: 12 }}>
             <thead>
               <tr>
-                <th style={{ minWidth: 160 }}>Hábito</th>
+                <th style={{ minWidth: 170 }}>Hábito</th>
                 {dias.map(d => <th key={d} style={{ width: 28, textAlign: 'center', padding: '6px 2px' }}>{d}</th>)}
                 <th style={{ textAlign: 'center' }}>%</th>
+                <th style={{ textAlign: 'center' }}>Seq.</th>
               </tr>
             </thead>
             <tbody>
@@ -135,41 +224,35 @@ export default function Habitos({ data, update }) {
                 const pct = consistencia(h)
                 return (
                   <tr key={h}>
-                    <td style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
-                      <span>{h}</span>
-                      <button onClick={() => removeHabito(h)} style={{ background: 'none', border: 'none', color: '#ccc', cursor: 'pointer', fontSize: 11, flexShrink: 0 }}>✕</button>
-                    </td>
+                    <td>{h}</td>
                     {dias.map(d => {
                       const k = fmtKey(viewYear, viewMonth, d)
                       const isFuture = new Date(viewYear, viewMonth, d) > hoje
                       const done = data.habitos[k]?.[h]
-                      const isToday = k === todayKey
+                      const isToday = k === keyHoje
                       return (
                         <td key={d} style={{ textAlign: 'center', padding: '4px 2px' }}>
-                          <div
+                          <button
+                            className={`habit-day-button ${done ? 'done' : ''} ${isToday ? 'today' : ''}`}
                             onClick={() => !isFuture && toggleDia(k, h)}
-                            style={{
-                              width: 22, height: 22, borderRadius: 4, margin: '0 auto',
-                              background: done ? 'var(--accent)' : isFuture ? '#f0f0f0' : 'var(--border)',
-                              border: isToday ? '2px solid var(--accent)' : '2px solid transparent',
-                              cursor: isFuture ? 'default' : 'pointer',
-                              opacity: isFuture ? 0.4 : 1,
-                            }}
+                            disabled={isFuture}
+                            title={isFuture ? 'Dia futuro' : 'Marcar/desmarcar'}
                           />
                         </td>
                       )
                     })}
-                    <td style={{ textAlign: 'center', fontWeight: 700, color: pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--yellow)' : 'var(--red)' }}>
+                    <td className="pct-cell" style={{ color: pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--yellow)' : 'var(--red)' }}>
                       {pct}%
                     </td>
+                    <td className="pct-cell">{streak(h)}d</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
         </div>
-        <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)' }}>
-          🟨 = dourado preenchido: hábito feito · clique para marcar/desmarcar
+        <div className="muted-small" style={{ marginTop: 12 }}>
+          Quadrados preenchidos indicam hábito concluído. Clique em qualquer dia passado ou atual para marcar/desmarcar.
         </div>
       </div>
     </>
