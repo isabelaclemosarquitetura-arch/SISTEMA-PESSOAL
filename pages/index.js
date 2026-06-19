@@ -6,6 +6,7 @@ import Habitos from '../components/Habitos'
 import Metas from '../components/Metas'
 import Exercicios from '../components/Exercicios'
 import Anotacoes from '../components/Anotacoes'
+import { migrarDados, ensureRecorrencias, DEFAULT_CDI_ANUAL } from '../lib/finance'
 
 const TABS = [
   { id: 'dashboard', label: 'Dashboard', icon: '◎' },
@@ -21,6 +22,8 @@ const INITIAL_DATA = {
   agenda: {},
   financeiro: [],
   investimentos: [],
+  cartoes: [],
+  configCDI: { taxaAnual: DEFAULT_CDI_ANUAL, atualizadoEm: '', manual: true, dataReferencia: '' },
   habitosLista: [
     'Beber 2L de água',
     'Exercício físico',
@@ -61,20 +64,26 @@ export default function Home() {
 
   useEffect(() => {
     const saved = localStorage.getItem('sp_data')
+    let nextData
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        const nextData = { ...INITIAL_DATA, ...parsed }
+        nextData = { ...INITIAL_DATA, ...parsed }
         if (!Array.isArray(nextData.habitosLista)) {
           nextData.habitosLista = INITIAL_DATA.habitosLista
         }
-        setData(nextData)
       } catch {
-        setData(INITIAL_DATA)
+        nextData = INITIAL_DATA
       }
     } else {
-      setData(INITIAL_DATA)
+      nextData = INITIAL_DATA
     }
+    // Migra dados de versões antigas para o novo formato e garante que toda
+    // recorrência ativa tenha lançamentos futuros gerados até 12 meses à frente.
+    nextData = migrarDados(nextData)
+    nextData.financeiro = ensureRecorrencias(nextData.financeiro)
+    setData(nextData)
+    localStorage.setItem('sp_data', JSON.stringify(nextData))
   }, [])
 
   const save = (newData) => {
@@ -83,20 +92,25 @@ export default function Home() {
   }
 
   const update = (section, value) => {
-    const newData = typeof section === 'object'
+    let newData = typeof section === 'object'
       ? { ...data, ...section }
       : { ...data, [section]: value }
+    if (typeof section === 'string' && section === 'financeiro') {
+      newData = { ...newData, financeiro: ensureRecorrencias(newData.financeiro) }
+    }
     save(newData)
   }
 
   const today = new Date()
   const todayStr = today.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
 
-  if (!data) return (
-    <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
-      Carregando...
-    </div>
-  )
+  if (!data) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
+        Carregando...
+      </div>
+    )
+  }
 
   const renderTab = () => {
     switch (tab) {
