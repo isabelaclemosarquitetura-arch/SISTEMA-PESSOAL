@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   TIPOS_INVESTIMENTO, INSTITUICOES_INVESTIMENTO, RENTABILIDADE_TIPOS, LIQUIDEZ_OPCOES,
-  fmt, moneyNumber, calcularValorAtualInvestimento, buscarCDIAnualAtual, hojeISO,
+  fmt, moneyNumber, calcularValorAtualInvestimento, buscarCDIAnualAtual, hojeISO, fmtDataBR,
 } from '../lib/finance'
 
 const EMPTY_FORM = {
@@ -306,6 +306,7 @@ export default function FinanceiroInvestimentos({ data, update }) {
               <tr>
                 <th>Ativo</th>
                 <th>Rentabilidade</th>
+                <th>Data</th>
                 <th>Dias</th>
                 <th>Atual</th>
                 <th>Resultado</th>
@@ -324,6 +325,7 @@ export default function FinanceiroInvestimentos({ data, update }) {
                   <td className="muted-cell">
                     {item.rentabilidadeTipo === '% CDI' ? `${item.rentabilidadeValor}% CDI` : item.rentabilidadeTipo === 'Prefixado' ? `${item.rentabilidadeValor}% a.a.` : 'Manual'}
                   </td>
+                  <td className="muted-cell">{fmtDataBR(item.dataInvestimento) || '-'}</td>
                   <td className="muted-cell">{calc.diasCorridos ?? '-'}</td>
                   <td>{fmt(calc.valorAtual)}</td>
                   <td style={{ color: calc.rendimentoAcumulado >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{fmt(calc.rendimentoAcumulado)}</td>

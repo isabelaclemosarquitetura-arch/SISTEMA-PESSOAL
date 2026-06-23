@@ -22,7 +22,7 @@
 }
 
 html, body {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
   height: 100%;
@@ -573,6 +573,8 @@ tr:hover td { background: #fdfbf8; }
 .chart-fill.red { background: var(--red); }
 .chart-fill.blue { background: var(--blue); }
 .chart-fill.green { background: var(--green); }
+.chart-fill.accent { background: var(--accent); }
+.chart-fill.neutral { background: #8fa3b1; }
 
 .investment-panel {
   margin-bottom: 20px;
@@ -664,6 +666,126 @@ tr:hover td { background: #fdfbf8; }
 
 .legend-income { background: var(--green); }
 .legend-expense { background: var(--red); }
+
+/* ── DASHBOARD SECTION LABEL ── */
+.dashboard-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 4px 0 10px;
+  padding-left: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ── DASHBOARD TASK ROWS ── */
+.dash-task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+.dash-task-row:last-child { border-bottom: none; }
+
+.dash-task-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  border: 2px solid var(--accent);
+  transition: background 0.15s;
+}
+.dash-task-dot.done {
+  background: var(--accent);
+}
+
+/* ── DASHBOARD HABITOS ── */
+.dash-habitos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.dash-habito-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s;
+  background: var(--bg);
+}
+.dash-habito-item input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.dash-habito-item.done {
+  background: #f6f2ea;
+  border-color: var(--accent-light);
+}
+.dash-habito-item.done span {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* ── BILL ALERT ROWS ── */
+.bill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bill-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border-left: 4px solid var(--border);
+  background: var(--bg);
+  font-size: 13px;
+}
+
+.bill-row.overdue {
+  border-left-color: var(--red);
+  background: #fff5f5;
+}
+.bill-row.today {
+  border-left-color: var(--yellow);
+  background: #fffbf0;
+}
+.bill-row.soon {
+  border-left-color: var(--accent);
+  background: #fdf8f0;
+}
+.bill-row.upcoming {
+  border-left-color: var(--border);
+}
+
+.bill-urgency-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.bill-urgency-overdue { background: #fdecea; color: var(--red); }
+.bill-urgency-today   { background: #fff3cd; color: #b45309; }
+.bill-urgency-soon    { background: #fef3e2; color: #92400e; }
+.bill-urgency-ok      { background: #f0f0f0; color: #888; }
 
 .table-actions {
   display: flex;
@@ -893,3 +1015,142 @@ tr:hover td { background: #fdfbf8; }
     grid-template-columns: 1fr;
   }
 }
+
+/* ── PAGE FADE-IN ANIMATION ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-fade-in {
+  animation: fadeInUp 0.18s ease-out;
+}
+
+/* ── DARK MODE ── */
+[data-theme="dark"] {
+  --bg: #131318;
+  --sidebar: #0e0e14;
+  --sidebar-hover: #1a1a26;
+  --accent: #c9a96e;
+  --accent-light: #2d2515;
+  --white: #1c1c28;
+  --text: #e8e6e3;
+  --text-muted: #888;
+  --border: #2e2e3e;
+  --green: #4ade80;
+  --red: #f87171;
+  --blue: #60a5fa;
+  --yellow: #fbbf24;
+  --card-shadow: 0 1px 6px rgba(0,0,0,0.35);
+}
+[data-theme="dark"] .card { background: var(--white); border-color: var(--border); }
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="number"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="range"],
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: #16161f;
+  color: var(--text);
+  border-color: var(--border);
+}
+[data-theme="dark"] tr:hover td { background: #1e1e2a; }
+[data-theme="dark"] .pill { background: #1c1c28; color: var(--text-muted); }
+[data-theme="dark"] .day-col { background: var(--white); }
+[data-theme="dark"] .badge-green  { background: #14532d; color: var(--green); }
+[data-theme="dark"] .badge-red    { background: #450a0a; color: var(--red); }
+[data-theme="dark"] .badge-blue   { background: #1e3a5f; color: var(--blue); }
+[data-theme="dark"] .badge-yellow { background: #451a03; color: var(--yellow); }
+[data-theme="dark"] .badge-gray   { background: #27272a; color: #aaa; }
+[data-theme="dark"] .dash-habito-item { background: #1a1a24; border-color: var(--border); }
+[data-theme="dark"] .dash-habito-item.done { background: #251e12; border-color: #3d2f12; }
+[data-theme="dark"] .bill-row { background: #1a1a24; }
+[data-theme="dark"] .bill-row.overdue { background: #2a1010; }
+[data-theme="dark"] .bill-row.today  { background: #2a200a; }
+[data-theme="dark"] .bill-row.soon   { background: #221a0a; }
+[data-theme="dark"] .budget-pct-badge.ok     { background: #14532d; color: var(--green); }
+[data-theme="dark"] .budget-pct-badge.warn   { background: #451a03; color: var(--yellow); }
+[data-theme="dark"] .budget-pct-badge.danger { background: #450a0a; color: var(--red); }
+
+/* ── SIDEBAR SETTINGS ── */
+.sidebar-settings {
+  padding: 0 12px 8px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  margin-top: 8px;
+}
+.settings-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  margin-top: 8px;
+  transition: all 0.15s;
+}
+.settings-btn:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.8); }
+.settings-panel {
+  margin-top: 8px;
+  padding: 12px;
+  background: rgba(0,0,0,0.25);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+.settings-feedback {
+  background: #1a3a1a; color: #6fcf97;
+  padding: 6px 10px; border-radius: 6px;
+  font-size: 11px; margin-bottom: 8px;
+}
+.settings-section { margin-bottom: 12px; }
+.settings-label {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.8px;
+  color: rgba(255,255,255,0.3); margin-bottom: 6px;
+}
+.settings-action-btn {
+  display: block; width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.7);
+  padding: 7px 10px; border-radius: 6px;
+  font-size: 12px; cursor: pointer;
+  text-align: left; margin-bottom: 5px;
+  transition: all 0.15s;
+}
+.settings-action-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.settings-shortcuts { display: flex; flex-direction: column; gap: 3px; }
+.shortcut-row {
+  font-size: 11px; color: rgba(255,255,255,0.4);
+  display: flex; align-items: center; gap: 6px;
+}
+kbd {
+  display: inline-block;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 3px; padding: 1px 5px;
+  font-size: 10px; font-family: monospace;
+  color: rgba(255,255,255,0.6);
+  min-width: 18px; text-align: center;
+}
+
+/* ── BUDGET BAR ── */
+.budget-bar-wrap { margin-top: 4px; }
+.budget-bar-track {
+  height: 4px; background: var(--border);
+  border-radius: 999px; overflow: hidden; margin-top: 3px;
+}
+.budget-bar-fill { height: 100%; border-radius: 999px; transition: width 0.3s; }
+.budget-bar-fill.ok     { background: var(--green); }
+.budget-bar-fill.warn   { background: var(--yellow); }
+.budget-bar-fill.danger { background: var(--red); }
+
+/* ── BUDGET PCT BADGE ── */
+.budget-pct-badge {
+  font-size: 10px; font-weight: 600;
+  padding: 1px 6px; border-radius: 20px;
+}
+.budget-pct-badge.ok     { background: #e8f5e9; color: var(--green); }
+.budget-pct-badge.warn   { background: #fff8e1; color: #b45309; }
+.budget-pct-badge.danger { background: #fdecea; color: var(--red); }

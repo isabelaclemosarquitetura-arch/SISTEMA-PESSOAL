@@ -21,6 +21,20 @@ function pct(done, total) {
   return total > 0 ? Math.round((done / total) * 100) : 0
 }
 
+// Calcula taxa mensal composta a partir da taxa anual (%)
+function taxaMensal(taxaAnualPct) {
+  return Math.pow(1 + (Number(taxaAnualPct) || 0) / 100, 1 / 12) - 1
+}
+
+// Projeção com juros compostos + aportes mensais recorrentes
+// VF = VP*(1+i)^n + PMT*[(1+i)^n - 1]/i
+function projetarPatrimonio(valorAtual, aporteMensal, taxaAnualPct, meses) {
+  const i = taxaMensal(taxaAnualPct)
+  if (i === 0) return valorAtual + aporteMensal * meses
+  const fator = Math.pow(1 + i, meses)
+  return valorAtual * fator + aporteMensal * (fator - 1) / i
+}
+
 export default function Dashboard({ data, update, setTab }) {
   const today = new Date()
   const todayKey = fmtKey(today)
@@ -42,7 +56,7 @@ export default function Dashboard({ data, update, setTab }) {
   const receitasPrevistasMes = lancMes.filter(l => l.tipo === 'Receita').reduce((s, l) => s + moneyNumber(l.valor), 0)
   const despesasPrevistasMes = lancMes.filter(l => l.tipo === 'Despesa').reduce((s, l) => s + moneyNumber(l.valor), 0)
 
-  // ── visão financeira global (todas as competências, não só o mês atual) ──
+  // ── visão financeira global ──
   const recebidoTotal = lancamentos.filter(l => l.tipo === 'Receita' && l.status === 'Recebida').reduce((s, l) => s + moneyNumber(l.valor), 0)
   const pagoTotal = lancamentos.filter(l => l.tipo === 'Despesa' && l.status === 'Pago').reduce((s, l) => s + moneyNumber(l.valor), 0)
   const saldoAtual = recebidoTotal - pagoTotal
@@ -51,6 +65,7 @@ export default function Dashboard({ data, update, setTab }) {
 
   const investimentosCalc = useMemo(() => investimentos.map(item => calcularValorAtualInvestimento(item, configCDI.taxaAnual, today)), [investimentos, configCDI.taxaAnual])
   const investimentosValorAtual = investimentosCalc.reduce((s, c) => s + c.valorAtual, 0)
+  const totalInvestido = investimentos.reduce((s, i) => s + moneyNumber(i.valorInvestido), 0)
   const aporteMensalPlanejado = investimentos.reduce((s, i) => s + moneyNumber(i.aporteMensal), 0)
   const patrimonioTotal = saldoAtual + investimentosValorAtual - contasAPagar
 
@@ -81,7 +96,7 @@ export default function Dashboard({ data, update, setTab }) {
         })
       }
     }
-    return res.slice(0, 5)
+    return res.slice(0, 8)
   }, [data.agenda])
 
   const gastosPorCategoria = useMemo(() => {
@@ -100,32 +115,90 @@ export default function Dashboard({ data, update, setTab }) {
     return { mes, receitas, despesas }
   }), [lancamentos])
 
-  const evolucaoPatrimonial = useMemo(() => {
-    let acumulado = 0
-    return evolucaoFinanceira.map(({ mes, receitas, despesas }) => {
-      acumulado += receitas - despesas
-      return { mes, valor: acumulado + investimentosValorAtual }
-    })
-  }, [evolucaoFinanceira, investimentosValorAtual])
-
+  // ── Evolução de investimentos: a partir do primeiro aporte real ──
   const evolucaoInvestimentos = useMemo(() => {
     const anoAtual = today.getFullYear()
+
+    // Encontrar o índice do primeiro mês com aporte no ano atual
+    const primeiraMesIdx = (() => {
+      let minIdx = 12
+      investimentos.forEach(i => {
+        if (!i.dataInvestimento) return
+        const d = new Date(i.dataInvestimento)
+        if (d.getFullYear() === anoAtual) {
+          minIdx = Math.min(minIdx, d.getMonth())
+        }
+      })
+      return minIdx === 12 ? null : minIdx
+    })()
+
+    if (primeiraMesIdx === null) return []
+
     let acumulado = 0
-    return MESES.map((mes, idx) => {
+    const resultado = []
+    for (let idx = primeiraMesIdx; idx < 12; idx++) {
+      const mes = MESES[idx]
       const aportesDoMes = investimentos.filter(i => {
         if (!i.dataInvestimento) return false
         const d = new Date(i.dataInvestimento)
         return d.getFullYear() === anoAtual && d.getMonth() === idx
       }).reduce((s, i) => s + moneyNumber(i.valorInvestido), 0)
       acumulado += aportesDoMes
-      return { mes, valor: acumulado }
-    })
+      resultado.push({ mes, valor: acumulado, aporte: aportesDoMes })
+    }
+    return resultado
   }, [investimentos])
+
+  // ── Projeção futura (12 meses) com CDI + aportes mensais ──
+  const projecaoFutura = useMemo(() => {
+    const MESES_PROJECAO = 12
+    const meses = []
+    let valorAcumulado = investimentosValorAtual
+    for (let i = 1; i <= MESES_PROJECAO; i++) {
+      const d = new Date(today)
+      d.setMonth(d.getMonth() + i)
+      const label = `${d.toLocaleString('pt-BR', { month: 'short' })}/${d.getFullYear().toString().slice(2)}`
+      // Aplica rendimento composto do mês + aporte
+      const i_mensal = taxaMensal(configCDI.taxaAnual)
+      valorAcumulado = valorAcumulado * (1 + i_mensal) + aporteMensalPlanejado
+      meses.push({ label, valor: valorAcumulado })
+    }
+    return meses
+  }, [investimentosValorAtual, aporteMensalPlanejado, configCDI.taxaAnual])
+
+  const valorProjetado12m = projecaoFutura.length > 0 ? projecaoFutura[projecaoFutura.length - 1].valor : investimentosValorAtual
+  const ganhoEstimado = valorProjetado12m - investimentosValorAtual - (aporteMensalPlanejado * 12)
+  const totalAportadoProjetado = totalInvestido + (aporteMensalPlanejado * 12)
 
   const maxCategoria = Math.max(1, ...gastosPorCategoria.map(i => i.total))
   const maxEvolucaoFin = Math.max(1, ...evolucaoFinanceira.flatMap(i => [i.receitas, i.despesas]))
-  const maxPatrimonial = Math.max(1, ...evolucaoPatrimonial.map(i => Math.abs(i.valor)))
-  const maxInvestEvol = Math.max(1, ...evolucaoInvestimentos.map(i => i.valor))
+  const maxInvestEvol = evolucaoInvestimentos.length > 0 ? Math.max(1, ...evolucaoInvestimentos.map(i => i.valor)) : 1
+  const maxProjecao = projecaoFutura.length > 0 ? Math.max(1, ...projecaoFutura.map(i => i.valor)) : 1
+
+  // ── Próximas contas a vencer (despesas pendentes com data) ──
+  const proximasContas = useMemo(() => {
+    const hoje = new Date(today)
+    hoje.setHours(0, 0, 0, 0)
+    const limite = new Date(hoje)
+    limite.setDate(limite.getDate() + 30) // mostra até 30 dias à frente
+
+    return lancamentos
+      .filter(l => l.tipo === 'Despesa' && l.status === 'Pendente' && l.vencimento)
+      .map(l => {
+        const venc = new Date(l.vencimento + 'T00:00:00')
+        const diffDias = Math.round((venc - hoje) / 86400000)
+        let urgencia = 'upcoming'
+        let urgenciaLabel = ''
+        if (diffDias < 0) { urgencia = 'overdue'; urgenciaLabel = `${Math.abs(diffDias)}d atrasada` }
+        else if (diffDias === 0) { urgencia = 'today'; urgenciaLabel = 'Vence hoje' }
+        else if (diffDias <= 3) { urgencia = 'soon'; urgenciaLabel = `em ${diffDias}d` }
+        else { urgenciaLabel = `em ${diffDias}d` }
+        return { ...l, venc, diffDias, urgencia, urgenciaLabel }
+      })
+      .filter(l => l.diffDias <= 30)
+      .sort((a, b) => a.diffDias - b.diffDias)
+      .slice(0, 8)
+  }, [lancamentos])
 
   return (
     <>
@@ -134,95 +207,192 @@ export default function Dashboard({ data, update, setTab }) {
         <p>{today.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
       </div>
 
-      <div className="grid-4" style={{ marginBottom: 20 }}>
-        <div className="card card-clickable" onClick={() => setTab('agenda')}>
-          <div className="card-title">Hoje</div>
-          <div className="stat-value">{feitas}/{tarefasHoje}</div>
-          <div className="stat-label">tarefas concluídas</div>
-          <div className="progress-bar" style={{ marginTop: 10 }}>
+      {/* ── SEÇÃO 1: TAREFAS (prioridade máxima) ── */}
+      <div className="dashboard-section-label">📋 Próximas tarefas</div>
+      <div className="grid-2" style={{ marginBottom: 20 }}>
+        <div className="card dash-tasks-card" onClick={() => setTab('agenda')} style={{ cursor: 'pointer' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div className="card-title" style={{ margin: 0 }}>Hoje — {feitas}/{tarefasHoje} concluídas</div>
+            <span className={`badge ${feitas === tarefasHoje && tarefasHoje > 0 ? 'badge-green' : feitas > 0 ? 'badge-yellow' : 'badge-gray'}`}>
+              {pct(feitas, tarefasHoje)}%
+            </span>
+          </div>
+          <div className="progress-bar" style={{ marginBottom: 14 }}>
             <div className="progress-fill" style={{ width: `${pct(feitas, tarefasHoje)}%` }} />
           </div>
+          {agendaHoje.tasks.filter(t => t.trim()).length === 0 ? (
+            <p className="muted-small">Nenhuma tarefa cadastrada para hoje.</p>
+          ) : agendaHoje.tasks.map((t, i) => t.trim() ? (
+            <div key={i} className="dash-task-row">
+              <span className={`dash-task-dot ${agendaHoje.checks[i] ? 'done' : ''}`} />
+              <span style={{ fontSize: 13, textDecoration: agendaHoje.checks[i] ? 'line-through' : 'none', color: agendaHoje.checks[i] ? 'var(--text-muted)' : 'var(--text)' }}>{t}</span>
+            </div>
+          ) : null)}
         </div>
 
-        <div className="card card-clickable" onClick={() => setTab('financeiro')}>
-          <div className="card-title">Patrimônio total</div>
-          <div className="stat-value" style={{ color: patrimonioTotal >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 20 }}>{fmt(patrimonioTotal)}</div>
-          <div className="stat-label">saldo + investimentos − a pagar</div>
+        <div className="card" onClick={() => setTab('agenda')} style={{ cursor: 'pointer' }}>
+          <div className="card-title">Próximos 7 dias</div>
+          {proximasTarefas.length === 0 ? (
+            <p className="muted-small">Nenhuma tarefa pendente nos próximos dias. 🎉</p>
+          ) : (
+            proximasTarefas.map((t, i) => (
+              <div key={i} className="list-row" style={{ padding: '7px 0' }}>
+                <span className="row-kicker">{t.data}</span>
+                <span style={{ fontSize: 13 }}>{t.label}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* ── SEÇÃO 2: HÁBITOS ── */}
+      <div className="dashboard-section-label">🔁 Hábitos de hoje</div>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div className="card-title" style={{ margin: 0 }}>
+            {habitosFeitos}/{habitosLista.length} concluídos
+          </div>
+          <span className={`badge ${percentualHabitos === 100 ? 'badge-green' : percentualHabitos >= 50 ? 'badge-yellow' : 'badge-gray'}`}>
+            {percentualHabitos}%
+          </span>
+        </div>
+        <div className="progress-bar" style={{ marginBottom: 14 }}>
+          <div className="progress-fill" style={{ width: `${percentualHabitos}%` }} />
+        </div>
+        <div className="dash-habitos-grid">
+          {habitosLista.map(h => (
+            <label key={h} className={`dash-habito-item ${habitosHoje[h] ? 'done' : ''}`}>
+              <input type="checkbox" checked={!!habitosHoje[h]} onChange={() => toggleHabitoHoje(h)} />
+              <span>{h}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* ── SEÇÃO 3: INDICADORES RÁPIDOS ── */}
+      <div className="dashboard-section-label">📊 Visão geral</div>
+      <div className="grid-4" style={{ marginBottom: 16 }}>
+        <div className="card card-clickable" onClick={() => setTab('agenda')}>
+          <div className="card-title">Agenda hoje</div>
+          <div className="stat-value">{feitas}/{tarefasHoje}</div>
+          <div className="stat-label">tarefas concluídas</div>
         </div>
 
         <div className="card card-clickable" onClick={() => setTab('habitos')}>
           <div className="card-title">Hábitos hoje</div>
           <div className="stat-value">{percentualHabitos}%</div>
-          <div className="stat-label">{habitosFeitos}/{habitosLista.length} concluídos</div>
-          <div className="progress-bar" style={{ marginTop: 10 }}>
-            <div className="progress-fill" style={{ width: `${percentualHabitos}%` }} />
-          </div>
+          <div className="stat-label">{habitosFeitos}/{habitosLista.length} feitos</div>
         </div>
 
         <div className="card card-clickable" onClick={() => setTab('metas')}>
-          <div className="card-title">Metas</div>
+          <div className="card-title">Metas ativas</div>
           <div className="stat-value">{metasAtivas}</div>
           <div className="stat-label">em andamento</div>
           {metasConcluidas > 0 && (
             <div style={{ marginTop: 8 }}><span className="badge badge-green">{metasConcluidas} concluída{metasConcluidas > 1 ? 's' : ''}</span></div>
           )}
         </div>
+
+        <div className="card card-clickable" onClick={() => setTab('financeiro')}>
+          <div className="card-title">Patrimônio total</div>
+          <div className="stat-value" style={{ color: patrimonioTotal >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 20 }}>{fmt(patrimonioTotal)}</div>
+          <div className="stat-label">saldo + invest. − a pagar</div>
+        </div>
       </div>
 
-      <div className="page-header" style={{ marginBottom: 14 }}>
-        <h2 style={{ fontSize: 16 }}>Visão financeira</h2>
-      </div>
-
+      {/* ── SEÇÃO 4: FINANCEIRO ── */}
+      <div className="dashboard-section-label">💰 Financeiro — {mesAtual}</div>
       <div className="grid-4" style={{ marginBottom: 16 }}>
         <div className="card card-clickable" onClick={() => setTab('financeiro')}>
           <div className="card-title">Saldo atual</div>
           <div className="stat-value" style={{ color: saldoAtual >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 19 }}>{fmt(saldoAtual)}</div>
-          <div className="muted-small">recebido − pago (todo o histórico)</div>
+          <div className="muted-small">recebido − pago (histórico)</div>
         </div>
         <div className="card card-clickable" onClick={() => setTab('financeiro')}>
-          <div className="card-title">Contas a pagar</div>
+          <div className="card-title">A pagar</div>
           <div className="stat-value" style={{ color: 'var(--yellow)', fontSize: 19 }}>{fmt(contasAPagar)}</div>
+          <div className="muted-small">despesas pendentes</div>
         </div>
         <div className="card card-clickable" onClick={() => setTab('financeiro')}>
-          <div className="card-title">Contas a receber</div>
+          <div className="card-title">A receber</div>
           <div className="stat-value" style={{ color: 'var(--blue)', fontSize: 19 }}>{fmt(contasAReceber)}</div>
+          <div className="muted-small">receitas previstas</div>
         </div>
         <div className="card card-clickable" onClick={() => setTab('financeiro')}>
           <div className="card-title">Investimentos</div>
           <div className="stat-value" style={{ color: 'var(--green)', fontSize: 19 }}>{fmt(investimentosValorAtual)}</div>
+          <div className="muted-small">valor atual da carteira</div>
         </div>
       </div>
 
-      <div className="grid-3" style={{ marginBottom: 20 }}>
-        <div className="card">
-          <div className="card-title">Receitas previstas - {mesAtual}</div>
-          <div className="stat-value" style={{ fontSize: 18, color: 'var(--green)' }}>{fmt(receitasPrevistasMes)}</div>
+      {/* ── PRÓXIMAS CONTAS A VENCER ── */}
+      <div className="grid-2" style={{ marginBottom: 16 }}>
+        <div className="card" onClick={() => setTab('financeiro')} style={{ cursor: 'pointer' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <div className="card-title" style={{ margin: 0 }}>Próximas contas a vencer</div>
+            {proximasContas.some(c => c.urgencia === 'overdue' || c.urgencia === 'today') && (
+              <span className="badge badge-red" style={{ fontSize: 10 }}>⚠ Atenção</span>
+            )}
+          </div>
+          {proximasContas.length === 0 ? (
+            <p className="muted-small">Nenhuma despesa pendente com vencimento nos próximos 30 dias. ✅</p>
+          ) : (
+            <div className="bill-list">
+              {proximasContas.map(c => (
+                <div key={c.id} className={`bill-row ${c.urgencia}`}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {c.descricao}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                      {c.categoria && <span>{c.categoria} · </span>}
+                      {c.venc.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </div>
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{fmt(c.valor)}</div>
+                  <span className={`bill-urgency-badge bill-urgency-${c.urgencia === 'upcoming' ? 'ok' : c.urgencia}`}>
+                    {c.urgenciaLabel}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="card">
-          <div className="card-title">Despesas previstas - {mesAtual}</div>
-          <div className="stat-value" style={{ fontSize: 18, color: 'var(--red)' }}>{fmt(despesasPrevistasMes)}</div>
-        </div>
-        <div className="card">
-          <div className="card-title">Meta mensal de aporte</div>
-          <div className="stat-value" style={{ fontSize: 18, color: 'var(--accent)' }}>{fmt(aporteMensalPlanejado)}</div>
+
+        {/* Card de resumo do mês — segunda coluna do grid */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div className="card">
+            <div className="card-title">Receitas previstas — {mesAtual}</div>
+            <div className="stat-value" style={{ fontSize: 18, color: 'var(--green)' }}>{fmt(receitasPrevistasMes)}</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Despesas previstas — {mesAtual}</div>
+            <div className="stat-value" style={{ fontSize: 18, color: 'var(--red)' }}>{fmt(despesasPrevistasMes)}</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Meta mensal de aporte</div>
+            <div className="stat-value" style={{ fontSize: 18, color: 'var(--accent)' }}>{fmt(aporteMensalPlanejado)}</div>
+          </div>
         </div>
       </div>
 
+
+      {/* ── SEÇÃO 5: GRÁFICOS FINANCEIROS ── */}
       <div className="grid-2" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Gastos por categoria - {mesAtual}</div>
+          <div className="card-title">Gastos por categoria — {mesAtual}</div>
           {gastosPorCategoria.length === 0 ? (
             <p className="muted-small">Nenhuma despesa registrada neste mês.</p>
           ) : gastosPorCategoria.map(item => (
             <div key={item.categoria} className="bar-row">
               <div className="bar-row-label"><span>{item.categoria}</span><strong>{fmt(item.total)}</strong></div>
-              <div className="chart-track"><div className="chart-fill red" style={{ width: `${(item.total / maxCategoria) * 100}%` }} /></div>
+              <div className="chart-track"><div className="chart-fill neutral" style={{ width: `${(item.total / maxCategoria) * 100}%` }} /></div>
             </div>
           ))}
         </div>
 
         <div className="card">
-          <div className="card-title">Receitas x despesas</div>
+          <div className="card-title">Receitas × despesas</div>
           <div className="monthly-chart" style={{ minHeight: 140 }}>
             {evolucaoFinanceira.map(item => (
               <div key={item.mes} className="monthly-group">
@@ -241,63 +411,83 @@ export default function Dashboard({ data, update, setTab }) {
         </div>
       </div>
 
+      {/* ── SEÇÃO 6: INVESTIMENTOS ── */}
+      <div className="dashboard-section-label">📈 Investimentos</div>
+
+      {/* Evolução histórica (só a partir do 1º investimento) */}
       <div className="grid-2" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Evolução patrimonial (aproximada)</div>
-          {evolucaoPatrimonial.map(item => (
-            <div key={item.mes} className="bar-row">
-              <div className="bar-row-label"><span>{item.mes.slice(0, 3)}</span><strong>{fmt(item.valor)}</strong></div>
-              <div className="chart-track"><div className="chart-fill blue" style={{ width: `${Math.min(100, (Math.abs(item.valor) / maxPatrimonial) * 100)}%` }} /></div>
-            </div>
-          ))}
-          <p className="muted-small">Saldo acumulado do ano + valor atual da carteira de investimentos.</p>
-        </div>
-
-        <div className="card">
-          <div className="card-title">Evolução dos investimentos (aportes no ano)</div>
-          {evolucaoInvestimentos.every(i => i.valor === 0) ? (
+          <div className="card-title">Evolução dos aportes ({today.getFullYear()})</div>
+          {evolucaoInvestimentos.length === 0 ? (
             <p className="muted-small">Nenhum investimento com data registrada neste ano.</p>
           ) : evolucaoInvestimentos.map(item => (
             <div key={item.mes} className="bar-row">
-              <div className="bar-row-label"><span>{item.mes.slice(0, 3)}</span><strong>{fmt(item.valor)}</strong></div>
-              <div className="chart-track"><div className="chart-fill green" style={{ width: `${(item.valor / maxInvestEvol) * 100}%` }} /></div>
+              <div className="bar-row-label">
+                <span>{item.mes.slice(0, 3)}</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {item.aporte > 0 && <span className="badge badge-green" style={{ fontSize: 10 }}>+{fmt(item.aporte)}</span>}
+                  <strong>{fmt(item.valor)}</strong>
+                </div>
+              </div>
+              <div className="chart-track"><div className="chart-fill accent" style={{ width: `${(item.valor / maxInvestEvol) * 100}%` }} /></div>
             </div>
           ))}
         </div>
-      </div>
 
-      <div className="grid-2" style={{ marginBottom: 20 }}>
+        {/* Projeção futura */}
         <div className="card">
-          <div className="card-title">Próximas tarefas</div>
-          {proximasTarefas.length === 0 ? (
-            <p className="muted-small">Nenhuma tarefa pendente nos próximos dias.</p>
+          <div className="card-title">Projeção — próximos 12 meses</div>
+          {aporteMensalPlanejado === 0 && investimentosValorAtual === 0 ? (
+            <p className="muted-small">Cadastre investimentos com aporte mensal para ver a projeção.</p>
           ) : (
-            proximasTarefas.map((t, i) => (
-              <div key={i} className="list-row">
-                <span className="row-kicker">{t.data}</span>
-                <span style={{ fontSize: 13 }}>{t.label}</span>
+            <>
+              <div className="grid-2" style={{ marginBottom: 14, gap: 10 }}>
+                <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Patrimônio atual</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--text)' }}>{fmt(investimentosValorAtual)}</div>
+                </div>
+                <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valor projetado (12m)</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--accent)' }}>{fmt(valorProjetado12m)}</div>
+                </div>
+                <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ganho por rendimento</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--green)' }}>{fmt(Math.max(0, ganhoEstimado))}</div>
+                </div>
+                <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total aportado projetado</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--text)' }}>{fmt(totalAportadoProjetado)}</div>
+                </div>
               </div>
-            ))
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${projecaoFutura.length}, minmax(38px, 1fr))`, gap: 4, alignItems: 'flex-end', minHeight: 80, paddingBottom: 4 }}>
+                  {projecaoFutura.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                      <div
+                        style={{
+                          width: '100%',
+                          height: `${Math.max(8, (item.valor / maxProjecao) * 72)}px`,
+                          background: 'var(--accent)',
+                          borderRadius: '3px 3px 0 0',
+                          opacity: 0.65 + (idx / projecaoFutura.length) * 0.35,
+                        }}
+                        title={`${item.label}: ${fmt(item.valor)}`}
+                      />
+                      <div style={{ fontSize: 9, color: 'var(--text-muted)', textAlign: 'center' }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="muted-small" style={{ marginTop: 8 }}>
+                Estimativa com CDI {Number(configCDI.taxaAnual || 0).toFixed(2)}% a.a. + {fmt(aporteMensalPlanejado)}/mês de aportes. Valores aproximados.
+              </p>
+            </>
           )}
         </div>
-
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-            <div className="card-title" style={{ margin: 0 }}>Hábitos de hoje</div>
-            <span className={`badge ${percentualHabitos === 100 ? 'badge-green' : percentualHabitos >= 50 ? 'badge-yellow' : 'badge-gray'}`}>{percentualHabitos}%</span>
-          </div>
-          <div className="habit-progress-dots" aria-label="Progresso diário dos hábitos">
-            {habitosLista.map(h => <span key={h} className={habitosHoje[h] ? 'done' : ''} />)}
-          </div>
-          {habitosLista.map(h => (
-            <label key={h} className={`check-item ${habitosHoje[h] ? 'done' : ''}`}>
-              <input type="checkbox" checked={!!habitosHoje[h]} onChange={() => toggleHabitoHoje(h)} />
-              <span style={{ fontSize: 13 }}>{h}</span>
-            </label>
-          ))}
-        </div>
       </div>
 
+      {/* ── SEÇÃO 7: METAS ── */}
+      <div className="dashboard-section-label">🎯 Metas</div>
       <div className="card">
         <div className="card-title">Visão geral das metas</div>
         <div className="dashboard-goals">

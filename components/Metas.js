@@ -1,25 +1,40 @@
 import { useState } from 'react'
 
 const STATUS_OPTIONS = ['Pendente', 'Em andamento', 'Concluída', 'Pausada']
-
 const BADGE_MAP = {
-  'Pendente': 'badge-gray',
-  'Em andamento': 'badge-blue',
-  'Concluída': 'badge-green',
-  'Pausada': 'badge-yellow',
+  'Pendente':      'badge-gray',
+  'Em andamento':  'badge-blue',
+  'Concluída':     'badge-green',
+  'Pausada':       'badge-yellow',
+}
+
+function diasRestantes(prazo) {
+  if (!prazo) return null
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  return Math.round((new Date(prazo + 'T00:00:00') - hoje) / 86400000)
+}
+
+function PrazoLabel({ prazo }) {
+  if (!prazo) return null
+  const dias = diasRestantes(prazo)
+  const data = new Date(prazo + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  if (dias < 0)  return <span style={{ fontSize: 11, color: 'var(--red)',   fontWeight: 600 }}>⚠ Prazo vencido há {Math.abs(dias)}d ({data})</span>
+  if (dias === 0) return <span style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600 }}>⚡ Prazo: hoje!</span>
+  if (dias <= 7)  return <span style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600 }}>⏳ {dias} dia{dias !== 1 ? 's' : ''} restante{dias !== 1 ? 's' : ''} ({data})</span>
+  if (dias <= 30) return <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>📅 {dias} dias restantes ({data})</span>
+  return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>📅 {data} ({dias} dias)</span>
 }
 
 export default function Metas({ data, update }) {
   const metas = data.metas || []
   const [expanded, setExpanded] = useState(null)
 
-  const updateMeta = (id, field, value) => {
-    const updated = metas.map(m => m.id === id ? { ...m, [field]: value } : m)
-    update('metas', updated)
-  }
+  const updateMeta = (id, field, value) =>
+    update('metas', metas.map(m => m.id === id ? { ...m, [field]: value } : m))
 
-  const concluidas = metas.filter(m => m.status === 'Concluída').length
-  const andamento = metas.filter(m => m.status === 'Em andamento').length
+  const concluidas  = metas.filter(m => m.status === 'Concluída').length
+  const andamento   = metas.filter(m => m.status === 'Em andamento').length
+  const atrasadas   = metas.filter(m => m.prazo && m.status !== 'Concluída' && diasRestantes(m.prazo) < 0).length
   const progressoGeral = metas.length > 0
     ? Math.round(metas.reduce((s, m) => s + (parseInt(m.progresso) || 0), 0) / metas.length)
     : 0
@@ -31,8 +46,8 @@ export default function Metas({ data, update }) {
         <p>Acompanhe o progresso das suas metas por área</p>
       </div>
 
-      {/* Resumo */}
-      <div className="grid-3" style={{ marginBottom: 20 }}>
+      {/* KPIs */}
+      <div className="grid-4" style={{ marginBottom: 20 }}>
         <div className="card" style={{ textAlign: 'center' }}>
           <div className="stat-value" style={{ color: 'var(--accent)' }}>{progressoGeral}%</div>
           <div className="stat-label">progresso geral</div>
@@ -42,37 +57,38 @@ export default function Metas({ data, update }) {
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div className="stat-value" style={{ color: 'var(--green)' }}>{concluidas}</div>
-          <div className="stat-label">metas concluídas</div>
+          <div className="stat-label">concluídas</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div className="stat-value" style={{ color: 'var(--blue)' }}>{andamento}</div>
           <div className="stat-label">em andamento</div>
         </div>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div className="stat-value" style={{ color: atrasadas > 0 ? 'var(--red)' : 'var(--text-muted)' }}>{atrasadas}</div>
+          <div className="stat-label">prazo vencido</div>
+        </div>
       </div>
 
-      {/* Cards de metas */}
+      {/* Lista de metas com accordion */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {metas.map(m => {
           const isOpen = expanded === m.id
           const pct = parseInt(m.progresso) || 0
-
           return (
             <div key={m.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-              {/* Header clicável */}
+              {/* Cabeçalho clicável */}
               <div
                 onClick={() => setExpanded(isOpen ? null : m.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px',
-                  cursor: 'pointer', background: isOpen ? '#fffdf9' : 'white',
-                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 20px', cursor: 'pointer' }}
               >
                 <div style={{ flex: 1 }}>
                   <div className="meta-area-label">{m.area}</div>
-                  <div style={{ fontSize: 14, fontWeight: m.meta ? 600 : 400, color: m.meta ? 'var(--text)' : 'var(--text-muted)' }}>
+                  <div style={{ fontSize: 14, fontWeight: m.meta ? 600 : 400, color: m.meta ? 'var(--text)' : 'var(--text-muted)', marginBottom: 4 }}>
                     {m.meta || 'Clique para definir esta meta...'}
                   </div>
+                  <PrazoLabel prazo={m.prazo} />
                 </div>
-                <div style={{ minWidth: 200 }}>
+                <div style={{ minWidth: 180 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
                     <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
                     <span style={{ fontWeight: 700, color: 'var(--accent)' }}>{pct}%</span>
@@ -85,7 +101,7 @@ export default function Metas({ data, update }) {
                 <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>{isOpen ? '▲' : '▼'}</span>
               </div>
 
-              {/* Corpo expandido */}
+              {/* Detalhes expandidos */}
               {isOpen && (
                 <div style={{ padding: '0 20px 20px', borderTop: '1px solid var(--border)' }}>
                   <div className="grid-2" style={{ marginTop: 16, gap: 12 }}>
@@ -131,24 +147,19 @@ export default function Metas({ data, update }) {
         })}
       </div>
 
-      {/* Reflexão do semestre */}
+      {/* Reflexão de fim de semestre */}
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-title">Reflexão — Fim do Semestre</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
-            ['reflexao_conquistei', 'O que você conquistou?'],
-            ['reflexao_diferente', 'O que poderia ter feito diferente?'],
-            ['reflexao_desafio', 'Qual foi o maior desafio?'],
-            ['reflexao_proximo', 'O que você leva para o próximo semestre?'],
+            ['reflexao_conquistei',  'O que você conquistou?'],
+            ['reflexao_diferente',   'O que poderia ter feito diferente?'],
+            ['reflexao_desafio',     'Qual foi o maior desafio?'],
+            ['reflexao_proximo',     'O que você leva para o próximo semestre?'],
           ].map(([key, label]) => (
             <div key={key} className="form-group">
               <label>{label}</label>
-              <textarea
-                value={data[key] || ''}
-                onChange={e => update(key, e.target.value)}
-                style={{ minHeight: 60 }}
-                placeholder="..."
-              />
+              <textarea value={data[key] || ''} onChange={e => update(key, e.target.value)} style={{ minHeight: 60 }} placeholder="..." />
             </div>
           ))}
         </div>

@@ -2,29 +2,62 @@ import { useState } from 'react'
 
 const DIAS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom']
 const DIAS_LABEL = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb', dom: 'Dom' }
-
 const EMPTY_REGISTRO = { data: '', destaque: '', repeticoes: '', observacoes: '' }
 
+function toISO(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function getWeekBounds() {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+  const day = hoje.getDay()
+  const seg = new Date(hoje); seg.setDate(seg.getDate() + (day === 0 ? -6 : 1 - day))
+  const dom = new Date(seg); dom.setDate(dom.getDate() + 6); dom.setHours(23, 59, 59, 999)
+  return { seg, dom }
+}
+
 export default function Exercicios({ data, update }) {
-  const plano = data.exercicios?.plano || {}
+  const plano    = data.exercicios?.plano    || {}
   const historico = data.exercicios?.historico || []
   const [registro, setRegistro] = useState({ ...EMPTY_REGISTRO })
   const [novoExercicio, setNovoExercicio] = useState('')
 
   const exercicios = Object.keys(plano)
+  const { seg, dom } = getWeekBounds()
+  const hoje = new Date()
 
-  const updatePlano = (ex, field, value) => {
-    const newPlano = { ...plano, [ex]: { ...plano[ex], [field]: value } }
-    update('exercicios', { ...data.exercicios, plano: newPlano })
-  }
+  const treinosSemana = historico.filter(r => {
+    if (!r.data) return false
+    const d = new Date(r.data + 'T00:00:00')
+    return d >= seg && d <= dom
+  }).length
+
+  const treinosMes = historico.filter(r => {
+    if (!r.data) return false
+    const d = new Date(r.data + 'T00:00:00')
+    return d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear()
+  }).length
+
+  const streakAtual = (() => {
+    let count = 0
+    const cursor = new Date(); cursor.setHours(0, 0, 0, 0)
+    for (let i = 0; i < 90; i++) {
+      if (historico.some(r => r.data === toISO(cursor))) { count++ }
+      else if (i > 0) break
+      cursor.setDate(cursor.getDate() - 1)
+    }
+    return count
+  })()
+
+  const updatePlano = (ex, field, value) =>
+    update('exercicios', { ...data.exercicios, plano: { ...plano, [ex]: { ...plano[ex], [field]: value } } })
 
   const addExercicio = () => {
     if (!novoExercicio.trim() || plano[novoExercicio.trim()]) return
-    const newPlano = {
-      ...plano,
-      [novoExercicio.trim()]: { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' }
-    }
-    update('exercicios', { ...data.exercicios, plano: newPlano })
+    update('exercicios', {
+      ...data.exercicios,
+      plano: { ...plano, [novoExercicio.trim()]: { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' } }
+    })
     setNovoExercicio('')
   }
 
@@ -35,16 +68,16 @@ export default function Exercicios({ data, update }) {
 
   const salvarRegistro = () => {
     if (!registro.data) return
-    const novo = { ...registro, id: Date.now() }
-    update('exercicios', { ...data.exercicios, historico: [novo, ...historico] })
+    update('exercicios', {
+      ...data.exercicios,
+      historico: [{ ...registro, id: Date.now() }, ...historico]
+    })
     setRegistro({ ...EMPTY_REGISTRO })
   }
 
-  const deleteRegistro = (id) => {
+  const deleteRegistro = (id) =>
     update('exercicios', { ...data.exercicios, historico: historico.filter(r => r.id !== id) })
-  }
 
-  // Contagem de dias ativos por exercício
   const diasAtivos = (ex) => DIAS.filter(d => plano[ex]?.[d]).length
 
   return (
@@ -54,7 +87,30 @@ export default function Exercicios({ data, update }) {
         <p>Plano semanal e histórico de evolução</p>
       </div>
 
-      {/* Plano semanal */}
+      {/* Cards de resumo semanal */}
+      <div className="grid-3" style={{ marginBottom: 20 }}>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div className="stat-value" style={{ color: treinosSemana >= 3 ? 'var(--green)' : 'var(--accent)' }}>
+            {treinosSemana}
+          </div>
+          <div className="stat-label">treinos esta semana</div>
+          <div className="progress-bar" style={{ marginTop: 10 }}>
+            <div className="progress-fill" style={{ width: `${Math.min(100, (treinosSemana / 5) * 100)}%` }} />
+          </div>
+        </div>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div className="stat-value" style={{ color: streakAtual >= 3 ? 'var(--green)' : 'var(--text)' }}>
+            {streakAtual}
+          </div>
+          <div className="stat-label">dias seguidos 🔥</div>
+        </div>
+        <div className="card" style={{ textAlign: 'center' }}>
+          <div className="stat-value" style={{ color: 'var(--blue)' }}>{treinosMes}</div>
+          <div className="stat-label">treinos este mês</div>
+        </div>
+      </div>
+
+      {/* Tabela do plano */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-title">Plano Semanal</div>
         <div className="table-wrap">
@@ -118,7 +174,7 @@ export default function Exercicios({ data, update }) {
         </div>
       </div>
 
-      {/* Registrar treino */}
+      {/* Registro de treino */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-title">Registrar treino de hoje</div>
         <div className="form-row">

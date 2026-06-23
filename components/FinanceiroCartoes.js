@@ -151,7 +151,7 @@ export default function FinanceiroCartoes({ data, update }) {
               ) : proximasFaturas.map(f => (
                 <div key={f.vencimentoISO} className="list-row">
                   <span className="row-kicker">{f.label}</span>
-                  <span style={{ fontSize: 13 }}>vence {f.vencimentoISO} · {fmt(f.total)}</span>
+                  <span style={{ fontSize: 13 }}>vence {f.vencimentoISO ? new Date(f.vencimentoISO + 'T00:00:00').toLocaleDateString('pt-BR') : ''} · {fmt(f.total)}</span>
                 </div>
               ))}
             </div>
