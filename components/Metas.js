@@ -8,6 +8,13 @@ const BADGE_MAP = {
   'Pausada':       'badge-yellow',
 }
 
+function getSemestreLabel() {
+  const now = new Date()
+  const mes = now.getMonth() // 0-11
+  const ano = now.getFullYear()
+  return mes < 6 ? `1º Semestre ${ano}` : `2º Semestre ${ano}`
+}
+
 function diasRestantes(prazo) {
   if (!prazo) return null
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
@@ -28,9 +35,33 @@ function PrazoLabel({ prazo }) {
 export default function Metas({ data, update }) {
   const metas = data.metas || []
   const [expanded, setExpanded] = useState(null)
+  const [novaArea, setNovaArea] = useState('')
+  const [showAddForm, setShowAddForm] = useState(false)
 
   const updateMeta = (id, field, value) =>
     update('metas', metas.map(m => m.id === id ? { ...m, [field]: value } : m))
+
+  const addMeta = () => {
+    const area = novaArea.trim()
+    if (!area) return
+    const newId = Date.now()
+    const newMeta = {
+      id: newId,
+      area,
+      meta: '', porque: '', prazo: '', progresso: 0,
+      status: 'Pendente', acoes: '', resultado: '',
+    }
+    update('metas', [...metas, newMeta])
+    setNovaArea('')
+    setShowAddForm(false)
+    setTimeout(() => setExpanded(newId), 50)
+  }
+
+  const deleteMeta = (id, area) => {
+    if (!window.confirm(`Excluir a meta "${area}"?`)) return
+    update('metas', metas.filter(m => m.id !== id))
+    if (expanded === id) setExpanded(null)
+  }
 
   const concluidas  = metas.filter(m => m.status === 'Concluída').length
   const andamento   = metas.filter(m => m.status === 'Em andamento').length
@@ -41,9 +72,14 @@ export default function Metas({ data, update }) {
 
   return (
     <>
-      <div className="page-header">
-        <h2>Metas — 2º Semestre 2026</h2>
-        <p>Acompanhe o progresso das suas metas por área</p>
+      <div className="page-header page-header-actions">
+        <div>
+          <h2>Metas — {getSemestreLabel()}</h2>
+          <p>Acompanhe o progresso das suas metas por área</p>
+        </div>
+        <button className="btn btn-primary" onClick={() => setShowAddForm(s => !s)}>
+          + Nova meta
+        </button>
       </div>
 
       {/* KPIs */}
@@ -68,6 +104,25 @@ export default function Metas({ data, update }) {
           <div className="stat-label">prazo vencido</div>
         </div>
       </div>
+
+      {/* Formulário nova meta */}
+      {showAddForm && (
+        <div className="meta-add-form" style={{ marginBottom: 16 }}>
+          <div className="form-group" style={{ flex: 1, margin: 0 }}>
+            <label>Área da nova meta</label>
+            <input
+              type="text"
+              value={novaArea}
+              onChange={e => setNovaArea(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && addMeta()}
+              placeholder="Ex: Idiomas, Negócios, Criatividade..."
+              autoFocus
+            />
+          </div>
+          <button className="btn btn-primary" onClick={addMeta} style={{ alignSelf: 'flex-end' }}>Criar</button>
+          <button className="btn btn-ghost" onClick={() => setShowAddForm(false)} style={{ alignSelf: 'flex-end' }}>Cancelar</button>
+        </div>
+      )}
 
       {/* Lista de metas com accordion */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -139,6 +194,15 @@ export default function Metas({ data, update }) {
                       <label>Resultado / Reflexão</label>
                       <textarea value={m.resultado} onChange={e => updateMeta(m.id, 'resultado', e.target.value)} placeholder="O que você conquistou até agora?" style={{ minHeight: 60 }} />
                     </div>
+                  </div>
+                  <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      className="btn btn-danger"
+                      onClick={e => { e.stopPropagation(); deleteMeta(m.id, m.area) }}
+                      style={{ fontSize: 12 }}
+                    >
+                      🗑 Excluir meta
+                    </button>
                   </div>
                 </div>
               )}

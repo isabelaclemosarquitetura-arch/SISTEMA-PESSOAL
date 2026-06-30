@@ -27,12 +27,19 @@ function taxaMensal(taxaAnualPct) {
 }
 
 // Projeção com juros compostos + aportes mensais recorrentes
-// VF = VP*(1+i)^n + PMT*[(1+i)^n - 1]/i
 function projetarPatrimonio(valorAtual, aporteMensal, taxaAnualPct, meses) {
   const i = taxaMensal(taxaAnualPct)
   if (i === 0) return valorAtual + aporteMensal * meses
   const fator = Math.pow(1 + i, meses)
   return valorAtual * fator + aporteMensal * (fator - 1) / i
+}
+
+// Retorna segunda-feira da semana atual
+function getMondayOfWeek(date) {
+  const d = new Date(date); d.setHours(0, 0, 0, 0)
+  const day = d.getDay()
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
+  return d
 }
 
 export default function Dashboard({ data, update, setTab }) {
@@ -44,9 +51,49 @@ export default function Dashboard({ data, update, setTab }) {
     ? data.habitosLista
     : HABITOS_DEFAULT
 
-  const agendaHoje = data.agenda[todayKey] || { tasks: ['', '', '', '', ''], checks: [false, false, false, false, false], notas: '' }
-  const tarefasHoje = agendaHoje.tasks.filter(t => t.trim()).length
-  const feitas = agendaHoje.checks.filter(Boolean).length
+  const agendaHoje = data.agenda[todayKey] || { tasks: [], checks: [], notas: '' }
+  const tarefasHoje = (agendaHoje.tasks || []).filter(t => t.trim()).length
+  const feitas = (agendaHoje.checks || []).filter(Boolean).length
+
+  // ── Resumo semanal (seg → hoje) ──
+  const resumoSemana = useMemo(() => {
+    const seg = getMondayOfWeek(today)
+    let tarefasTotais = 0, tarefasFeitas = 0
+    let habitosDias = 0, habitosTotaisDias = 0
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(seg); d.setDate(d.getDate() + i)
+      if (d > today) break
+      const key = fmtKey(d)
+      const dia = data.agenda[key]
+      if (dia?.tasks) {
+        const tasks = Array.isArray(dia.tasks) ? dia.tasks : []
+        const checks = Array.isArray(dia.checks) ? dia.checks : []
+        tasks.forEach((t, idx) => { if (t.trim()) { tarefasTotais++; if (checks[idx]) tarefasFeitas++ } })
+      }
+      const hab = data.habitos[key] || {}
+      habitosDias += habitosLista.filter(h => hab[h]).length
+      habitosTotaisDias += habitosLista.length
+    }
+    const pctHabitos = habitosTotaisDias > 0 ? Math.round((habitosDias / habitosTotaisDias) * 100) : 0
+    const diasSemana = Math.round((today - seg) / 86400000) + 1
+    return { tarefasTotais, tarefasFeitas, pctHabitos, diasSemana }
+  }, [data.agenda, data.habitos, habitosLista])
+
+  // Melhor streak de hábito
+  const melhorStreak = useMemo(() => {
+    let max = 0
+    habitosLista.forEach(h => {
+      let count = 0
+      const cursor = new Date(today)
+      for (let i = 0; i < 366; i++) {
+        if (data.habitos[fmtKey(cursor)]?.[h]) count++
+        else if (i > 0) break
+        cursor.setDate(cursor.getDate() - 1)
+      }
+      if (count > max) max = count
+    })
+    return max
+  }, [data.habitos, habitosLista])
 
   const lancamentos = data.financeiro || []
   const investimentos = data.investimentos || []
@@ -205,6 +252,38 @@ export default function Dashboard({ data, update, setTab }) {
       <div className="page-header">
         <h2>Dashboard</h2>
         <p>{today.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
+      </div>
+
+      {/* ── RESUMO SEMANAL ── */}
+      <div className="weekly-summary" style={{ marginBottom: 24 }}>
+        <div className="weekly-summary-item">
+          <div className="weekly-summary-label">Semana — tarefas</div>
+          <div className="weekly-summary-value" style={{ color: resumoSemana.tarefasTotais > 0 && resumoSemana.tarefasFeitas === resumoSemana.tarefasTotais ? 'var(--green)' : 'var(--text)' }}>
+            {resumoSemana.tarefasFeitas}/{resumoSemana.tarefasTotais}
+          </div>
+          <div className="weekly-summary-sub">concluídas esta semana</div>
+        </div>
+        <div className="weekly-summary-item">
+          <div className="weekly-summary-label">Semana — hábitos</div>
+          <div className="weekly-summary-value" style={{ color: resumoSemana.pctHabitos >= 80 ? 'var(--green)' : resumoSemana.pctHabitos >= 50 ? 'var(--yellow)' : 'var(--red)' }}>
+            {resumoSemana.pctHabitos}%
+          </div>
+          <div className="weekly-summary-sub">média nos últimos {resumoSemana.diasSemana}d</div>
+        </div>
+        <div className="weekly-summary-item">
+          <div className="weekly-summary-label">Melhor sequência</div>
+          <div className="weekly-summary-value" style={{ color: melhorStreak >= 7 ? 'var(--green)' : melhorStreak >= 3 ? 'var(--accent)' : 'var(--text)' }}>
+            {melhorStreak > 0 ? `${melhorStreak}d 🔥` : '—'}
+          </div>
+          <div className="weekly-summary-sub">dias seguidos (hábito)</div>
+        </div>
+        <div className="weekly-summary-item">
+          <div className="weekly-summary-label">Patrimônio total</div>
+          <div className="weekly-summary-value" style={{ fontSize: 16, color: patrimonioTotal >= 0 ? 'var(--green)' : 'var(--red)' }}>
+            {fmt(patrimonioTotal)}
+          </div>
+          <div className="weekly-summary-sub">saldo + invest. − a pagar</div>
+        </div>
       </div>
 
       {/* ── SEÇÃO 1: TAREFAS (prioridade máxima) ── */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Head from 'next/head'
 import Dashboard from '../components/Dashboard'
 import Agenda from '../components/Agenda'
@@ -7,7 +7,7 @@ import Habitos from '../components/Habitos'
 import Metas from '../components/Metas'
 import Exercicios from '../components/Exercicios'
 import Anotacoes from '../components/Anotacoes'
-import { migrarDados, ensureRecorrencias, DEFAULT_CDI_ANUAL } from '../lib/finance'
+import { migrarDados, ensureRecorrencias, DEFAULT_CDI_ANUAL, buscarCDIAnualAtual } from '../lib/finance'
 
 const TABS = [
   { id: 'dashboard',  label: 'Dashboard',   icon: '🏠' },
@@ -66,13 +66,22 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [settingsFeedback, setSettingsFeedback] = useState('')
+  const [savedIndicator, setSavedIndicator] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [notifAsked, setNotifAsked] = useState(false)
+  const savedTimerRef = useRef(null)
+  const cdiCheckedRef = useRef(false)
 
+  // Carregamento inicial
   useEffect(() => {
     const savedTheme = localStorage.getItem('sp_theme')
     if (savedTheme === 'dark') {
       setDarkMode(true)
       document.documentElement.setAttribute('data-theme', 'dark')
     }
+    const savedCollapsed = localStorage.getItem('sp_sidebar_collapsed')
+    if (savedCollapsed === 'true') setSidebarCollapsed(true)
+
     const saved = localStorage.getItem('sp_data')
     let nextData
     if (saved) {
@@ -92,6 +101,59 @@ export default function Home() {
     setData(nextData)
     localStorage.setItem('sp_data', JSON.stringify(nextData))
   }, [])
+
+  // CDI automático: busca uma vez por dia ao carregar
+  useEffect(() => {
+    if (!data || cdiCheckedRef.current) return
+    cdiCheckedRef.current = true
+    const hoje = new Date().toISOString().split('T')[0]
+    const configCDI = data.configCDI || {}
+    if (configCDI.atualizadoEm === hoje) return // já buscou hoje
+    buscarCDIAnualAtual()
+      .then(({ taxaAnual, dataReferencia }) => {
+        const newConfig = { taxaAnual, atualizadoEm: hoje, manual: false, dataReferencia }
+        setData(d => {
+          const next = { ...d, configCDI: newConfig }
+          localStorage.setItem('sp_data', JSON.stringify(next))
+          return next
+        })
+      })
+      .catch(() => {}) // silencioso — mantém o valor salvo
+  }, [data])
+
+  // Notificações de contas a vencer (solicita permissão uma vez)
+  useEffect(() => {
+    if (!data || notifAsked || typeof window === 'undefined') return
+    if (!('Notification' in window)) return
+    setNotifAsked(true)
+
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0)
+    const em3dias = new Date(hoje); em3dias.setDate(em3dias.getDate() + 3)
+    const urgentes = (data.financeiro || []).filter(l => {
+      if (l.tipo !== 'Despesa' || l.status !== 'Pendente' || !l.vencimento) return false
+      const venc = new Date(l.vencimento + 'T00:00:00')
+      return venc >= hoje && venc <= em3dias
+    })
+    if (urgentes.length === 0) return
+
+    const hojeStr = hoje.toISOString().split('T')[0]
+    const lastNotif = localStorage.getItem('sp_last_notif')
+    if (lastNotif === hojeStr) return // já notificou hoje
+
+    Notification.requestPermission().then(perm => {
+      if (perm !== 'granted') return
+      localStorage.setItem('sp_last_notif', hojeStr)
+      urgentes.slice(0, 5).forEach(l => {
+        const venc = new Date(l.vencimento + 'T00:00:00')
+        const diffDias = Math.round((venc - hoje) / 86400000)
+        const bodyText = diffDias === 0 ? 'Vence hoje!' : `Vence em ${diffDias} dia${diffDias > 1 ? 's' : ''}`
+        new Notification(`💰 ${l.descricao}`, {
+          body: `${bodyText} · ${Number(l.valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`,
+          tag: `conta-${l.id}`,
+        })
+      })
+    })
+  }, [data, notifAsked])
 
   // Atalhos de teclado: 1–7 trocam de aba
   useEffect(() => {
@@ -113,9 +175,19 @@ export default function Home() {
     localStorage.setItem('sp_theme', next ? 'dark' : 'light')
   }
 
+  const toggleSidebar = () => {
+    const next = !sidebarCollapsed
+    setSidebarCollapsed(next)
+    localStorage.setItem('sp_sidebar_collapsed', String(next))
+  }
+
   const save = (newData) => {
     setData(newData)
     localStorage.setItem('sp_data', JSON.stringify(newData))
+    // Indicador de salvo
+    clearTimeout(savedTimerRef.current)
+    setSavedIndicator(true)
+    savedTimerRef.current = setTimeout(() => setSavedIndicator(false), 1500)
   }
 
   const update = (section, value) => {
@@ -168,7 +240,10 @@ export default function Home() {
   if (!data) {
     return (
       <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
-        Carregando...
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: 28, marginBottom: 10 }}>⚡</div>
+          <div style={{ fontSize: 14 }}>Carregando...</div>
+        </div>
       </div>
     )
   }
@@ -192,21 +267,32 @@ export default function Home() {
         <title>Centro de Comando</title>
         <meta name="description" content="Sistema de organização pessoal" />
       </Head>
-      <div className="sidebar">
+
+      <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+        {/* Botão colapsar */}
+        <button
+          className="sidebar-collapse-btn"
+          onClick={toggleSidebar}
+          title={sidebarCollapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+        >
+          {sidebarCollapsed ? '›' : '‹'}
+        </button>
+
         <div className="sidebar-header">
           <h1>Centro de Comando</h1>
           <p>Organização pessoal</p>
         </div>
+
         <nav className="sidebar-nav">
           {TABS.map((t, idx) => (
             <div
               key={t.id}
               className={`nav-item ${tab === t.id ? 'active' : ''}`}
               onClick={() => setTab(t.id)}
-              title={`${t.label} (tecla ${idx + 1})`}
+              title={sidebarCollapsed ? `${t.label} (tecla ${idx + 1})` : `Tecla ${idx + 1}`}
             >
               <span className="nav-icon">{t.icon}</span>
-              {t.label}
+              <span className="nav-label">{t.label}</span>
             </div>
           ))}
         </nav>
@@ -239,6 +325,18 @@ export default function Home() {
               </div>
 
               <div className="settings-section">
+                <div className="settings-label">CDI atual</div>
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', padding: '4px 0' }}>
+                  {Number(data.configCDI?.taxaAnual || 0).toFixed(2)}% a.a.
+                  {data.configCDI?.atualizadoEm && (
+                    <span style={{ fontSize: 10, display: 'block', marginTop: 2, opacity: 0.6 }}>
+                      Atualizado: {data.configCDI.atualizadoEm}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="settings-section">
                 <div className="settings-label">Atalhos de teclado</div>
                 <div className="settings-shortcuts">
                   {TABS.map((t, i) => (
@@ -260,6 +358,11 @@ export default function Home() {
           {renderTab()}
         </div>
       </main>
+
+      {/* Toast de salvo */}
+      {savedIndicator && (
+        <div className="save-indicator">✓ Salvo</div>
+      )}
     </>
   )
 }
