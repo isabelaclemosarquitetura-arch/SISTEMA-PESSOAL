@@ -71,6 +71,7 @@ export default function Home() {
   const [notifAsked, setNotifAsked] = useState(false)
   const savedTimerRef = useRef(null)
   const cdiCheckedRef = useRef(false)
+  const saveDebounceRef = useRef(null)
 
   // Carregamento inicial
   useEffect(() => {
@@ -183,8 +184,12 @@ export default function Home() {
 
   const save = (newData) => {
     setData(newData)
-    localStorage.setItem('sp_data', JSON.stringify(newData))
-    // Indicador de salvo
+    // Debounce: persiste no localStorage após 350ms de inatividade
+    clearTimeout(saveDebounceRef.current)
+    saveDebounceRef.current = setTimeout(() => {
+      localStorage.setItem('sp_data', JSON.stringify(newData))
+    }, 350)
+    // Indicador visual
     clearTimeout(savedTimerRef.current)
     setSavedIndicator(true)
     savedTimerRef.current = setTimeout(() => setSavedIndicator(false), 1500)
@@ -235,15 +240,38 @@ export default function Home() {
   }
 
   const today = new Date()
+  const todayDia = today.getDate()
+  const todayMes = today.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
+  const todayWeekday = today.toLocaleDateString('pt-BR', { weekday: 'long' })
   const todayStr = today.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
 
   if (!data) {
     return (
-      <div style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
+      <div style={{
+        display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(160deg, #f9f7f4 0%, #f0ebe3 100%)',
+        flexDirection: 'column', gap: 20,
+      }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: 14,
+          background: 'linear-gradient(135deg, #c9a96e, #a8803e)',
+          boxShadow: '0 8px 24px rgba(201,169,110,0.4)',
+          animation: 'splashPulse 1.4s ease-in-out infinite',
+        }} />
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 28, marginBottom: 10 }}>⚡</div>
-          <div style={{ fontSize: 14 }}>Carregando...</div>
+          <div style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 15, fontWeight: 600, color: '#2a2520', letterSpacing: '-0.2px' }}>
+            Centro de Comando
+          </div>
+          <div style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12, color: '#9a8f85', marginTop: 4 }}>
+            Carregando seus dados...
+          </div>
         </div>
+        <style>{`
+          @keyframes splashPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(0.9); opacity: 0.7; }
+          }
+        `}</style>
       </div>
     )
   }
@@ -296,6 +324,26 @@ export default function Home() {
             </div>
           ))}
         </nav>
+
+        {/* Ícones rápidos no modo colapsado */}
+        {sidebarCollapsed && (
+          <div className="sidebar-collapsed-actions">
+            <button
+              className="sidebar-collapsed-btn"
+              onClick={toggleDark}
+              title={darkMode ? 'Modo claro' : 'Modo escuro'}
+            >
+              {darkMode ? '☀' : '☽'}
+            </button>
+            <button
+              className="sidebar-collapsed-btn"
+              onClick={() => { setSidebarCollapsed(false); setShowSettings(true) }}
+              title="Configurações"
+            >
+              ⚙
+            </button>
+          </div>
+        )}
 
         {/* Painel de configurações */}
         <div className="sidebar-settings">
@@ -350,10 +398,16 @@ export default function Home() {
           )}
         </div>
 
-        <div className="sidebar-date">{todayStr}</div>
+        <div className="sidebar-date">
+          <div className="sidebar-date-number">{todayDia}</div>
+          <div className="sidebar-date-info">
+            <span className="sidebar-date-month">{todayMes}</span>
+            <span className="sidebar-date-weekday">{todayWeekday}</span>
+          </div>
+        </div>
       </div>
 
-      <main className="main">
+      <main className="main" data-section={tab}>
         <div className="page-fade-in" key={tab}>
           {renderTab()}
         </div>
@@ -361,7 +415,10 @@ export default function Home() {
 
       {/* Toast de salvo */}
       {savedIndicator && (
-        <div className="save-indicator">✓ Salvo</div>
+        <div className="save-indicator">
+          <span className="save-indicator-icon">✓</span>
+          Salvo
+        </div>
       )}
     </>
   )

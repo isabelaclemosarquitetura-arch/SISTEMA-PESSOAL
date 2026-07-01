@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 
-const DIAS_LABEL = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+const DIAS_LABEL     = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+const DIAS_LABEL_CAL = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+const MESES_PT       = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
 function getMondayOf(date) {
   const d = new Date(date)
@@ -28,7 +30,11 @@ const EMPTY_DAY = () => normDay(null)
 
 export default function Agenda({ data, update }) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
+  const [view, setView]             = useState('semana') // 'semana' | 'mes'
   const [weekStart, setWeekStart]   = useState(getMondayOf(today))
+  const [calYear,  setCalYear]      = useState(today.getFullYear())
+  const [calMonth, setCalMonth]     = useState(today.getMonth())
+  const [calSelected, setCalSelected] = useState(null) // key do dia selecionado no calendário
   const [showBacklog, setShowBacklog] = useState(true)
 
   const days = DIAS_LABEL.map((label, i) => {
@@ -108,11 +114,34 @@ export default function Agenda({ data, update }) {
     update('agenda', { ...data.agenda, [key]: { ...day, checks } })
   }
 
+  // ── Calendário mensal ──
+  const calDays = useMemo(() => {
+    const firstDay = new Date(calYear, calMonth, 1)
+    const startDow = firstDay.getDay() // 0=Dom
+    const offset = startDow === 0 ? 6 : startDow - 1 // alinha na segunda
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
+    const cells = []
+    for (let i = 0; i < offset; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(calYear, calMonth, d))
+    return cells
+  }, [calYear, calMonth])
+
+  const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) } else setCalMonth(m => m - 1) }
+  const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) } else setCalMonth(m => m + 1) }
+
+  const selectedDay = calSelected ? normDay(data.agenda[calSelected]) : null
+
   return (
     <>
-      <div className="page-header">
-        <h2>Agenda Semanal</h2>
-        <p>Adicione quantas tarefas precisar · marque as concluídas</p>
+      <div className="page-header page-header-actions">
+        <div>
+          <h2>Agenda {view === 'mes' ? 'Mensal' : 'Semanal'}</h2>
+          <p>Adicione quantas tarefas precisar · marque as concluídas</p>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button className={`btn btn-sm ${view === 'semana' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('semana')}>Semana</button>
+          <button className={`btn btn-sm ${view === 'mes' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('mes')}>Mês</button>
+        </div>
       </div>
 
       {/* Painel de backlog */}
@@ -142,6 +171,83 @@ export default function Agenda({ data, update }) {
         </div>
       )}
 
+      {view === 'mes' ? (
+        /* ── VISÃO MENSAL ── */
+        <>
+          <div className="week-nav">
+            <button onClick={prevMonth}>‹</button>
+            <span>{MESES_PT[calMonth]} {calYear}</span>
+            <button onClick={nextMonth}>›</button>
+            <button onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()) }}
+              style={{ marginLeft: 8, fontSize: 12, color: 'var(--accent)', borderColor: 'var(--accent)' }}>
+              Hoje
+            </button>
+          </div>
+
+          <div className="cal-grid">
+            {DIAS_LABEL_CAL.map(d => (
+              <div key={d} className="cal-header-cell">{d}</div>
+            ))}
+            {calDays.map((date, i) => {
+              if (!date) return <div key={`empty-${i}`} className="cal-cell cal-cell-empty" />
+              const key = fmtKey(date)
+              const dia = normDay(data.agenda[key])
+              const total  = dia.tasks.filter(t => t.trim()).length
+              const feitas = dia.checks.filter(Boolean).length
+              const isToday = key === fmtKey(today)
+              const isSelected = key === calSelected
+              return (
+                <div
+                  key={key}
+                  className={`cal-cell ${isToday ? 'cal-today' : ''} ${isSelected ? 'cal-selected' : ''}`}
+                  onClick={() => setCalSelected(isSelected ? null : key)}
+                >
+                  <div className="cal-day-num">{date.getDate()}</div>
+                  {total > 0 && (
+                    <div className="cal-task-dots">
+                      {Array.from({ length: Math.min(total, 5) }).map((_, j) => (
+                        <span key={j} className={`cal-dot ${j < feitas ? 'done' : ''}`} />
+                      ))}
+                    </div>
+                  )}
+                  {total > 0 && (
+                    <div className="cal-task-count">{feitas}/{total}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Painel do dia selecionado */}
+          {calSelected && selectedDay && (
+            <div className="card" style={{ marginTop: 16 }}>
+              <div className="card-title">
+                {new Date(calSelected + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+              </div>
+              {selectedDay.tasks.map((task, i) => (
+                <div key={i} className="task-input">
+                  <input type="checkbox" checked={selectedDay.checks[i]}
+                    onChange={() => toggleCheck(calSelected, i)}
+                    style={{ width: 14, height: 14, accentColor: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }} />
+                  <input type="text" value={task}
+                    placeholder={`Tarefa ${i + 1}`}
+                    onChange={e => updateTask(calSelected, i, e.target.value)}
+                    style={{ textDecoration: selectedDay.checks[i] ? 'line-through' : 'none', color: selectedDay.checks[i] ? 'var(--text-muted)' : 'var(--text)' }} />
+                  {(i >= 5 || !task.trim()) && (
+                    <button className="task-remove-btn" onClick={() => removeTask(calSelected, i)}>×</button>
+                  )}
+                </div>
+              ))}
+              <button className="task-add-btn" onClick={() => addTask(calSelected)}>+ tarefa</button>
+              <textarea value={selectedDay.notas} placeholder="Notas do dia..."
+                onChange={e => updateNotas(calSelected, e.target.value)}
+                style={{ marginTop: 8, fontSize: 12, minHeight: 50, color: 'var(--text-muted)' }} />
+            </div>
+          )}
+        </>
+      ) : (
+        /* ── VISÃO SEMANAL ── */
+        <>
       {/* Navegação de semana */}
       <div className="week-nav">
         <button onClick={prevWeek}>‹</button>
@@ -216,6 +322,8 @@ export default function Agenda({ data, update }) {
           )
         })}
       </div>
+        </>
+      )}
     </>
   )
 }

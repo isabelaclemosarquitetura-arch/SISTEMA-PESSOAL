@@ -136,8 +136,8 @@ export default function Dashboard({ data, update, setTab }) {
       const key = fmtKey(d)
       const dia = data.agenda[key]
       if (dia) {
-        dia.tasks.forEach((t, idx) => {
-          if (t.trim() && !dia.checks[idx]) {
+        (dia.tasks || []).forEach((t, idx) => {
+          if (t.trim() && !(dia.checks || [])[idx]) {
             res.push({ label: t, data: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }) })
           }
         })

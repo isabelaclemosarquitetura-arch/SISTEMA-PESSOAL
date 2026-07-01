@@ -96,8 +96,10 @@ export default function FinanceiroLancamentos({ data, update }) {
   const handleEdit = (l) => { setForm({...EMPTY_FORM,...l}); setEditId(l.id); setShowForm(true); window.scrollTo({top:0,behavior:'smooth'}) }
   const handleDelete = (l) => {
     if(l.recorrenciaGrupoId){
-      const futuros=window.confirm('Excluir também ocorrências futuras?')
+      const futuros=window.confirm('Excluir também as ocorrências futuras desta recorrência?')
       if(futuros){update('financeiro',lancamentos.filter(x=>!(x.recorrenciaGrupoId===l.recorrenciaGrupoId&&x.vencimento>=l.vencimento)));showFeedback('Excluído com ocorrências futuras.');return}
+    } else {
+      if(!window.confirm(`Excluir "${l.descricao}" (${fmt(moneyNumber(l.valor))})?`)) return
     }
     update('financeiro',lancamentos.filter(x=>x.id!==l.id));showFeedback('Lançamento excluído.')
   }

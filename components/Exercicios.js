@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 
 const DIAS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom']
 const DIAS_LABEL = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb', dom: 'Dom' }
-const EMPTY_REGISTRO = { data: '', destaque: '', repeticoes: '', observacoes: '' }
+const EMPTY_REGISTRO = { data: '', destaque: '', repeticoes: '', carga: '', observacoes: '' }
 
 function toISO(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -21,6 +21,7 @@ export default function Exercicios({ data, update }) {
   const historico = data.exercicios?.historico || []
   const [registro, setRegistro] = useState({ ...EMPTY_REGISTRO })
   const [novoExercicio, setNovoExercicio] = useState('')
+  const [progressaoEx, setProgressaoEx] = useState('')
 
   const exercicios = Object.keys(plano)
   const { seg, dom } = getWeekBounds()
@@ -79,6 +80,20 @@ export default function Exercicios({ data, update }) {
     update('exercicios', { ...data.exercicios, historico: historico.filter(r => r.id !== id) })
 
   const diasAtivos = (ex) => DIAS.filter(d => plano[ex]?.[d]).length
+
+  // Nomes únicos de exercícios que aparecem no histórico
+  const exerciciosHistorico = useMemo(() => {
+    const nomes = [...new Set(historico.map(r => r.destaque).filter(Boolean))]
+    return nomes.sort()
+  }, [historico])
+
+  // Entradas do exercício selecionado, ordenadas por data asc
+  const progressaoData = useMemo(() => {
+    if (!progressaoEx) return []
+    return historico
+      .filter(r => r.destaque === progressaoEx && r.data)
+      .sort((a, b) => a.data.localeCompare(b.data))
+  }, [historico, progressaoEx])
 
   return (
     <>
@@ -190,6 +205,10 @@ export default function Exercicios({ data, update }) {
             <label>Repetições/Tempo</label>
             <input type="text" value={registro.repeticoes} onChange={e => setRegistro(r => ({ ...r, repeticoes: e.target.value }))} placeholder="Ex: 3x20 / 45min" />
           </div>
+          <div className="form-group" style={{ maxWidth: 120 }}>
+            <label>Carga (kg)</label>
+            <input type="text" value={registro.carga} onChange={e => setRegistro(r => ({ ...r, carga: e.target.value }))} placeholder="Ex: 20kg" />
+          </div>
           <div className="form-group">
             <label>Observações</label>
             <input type="text" value={registro.observacoes} onChange={e => setRegistro(r => ({ ...r, observacoes: e.target.value }))} placeholder="Como foi o treino?" />
@@ -211,8 +230,9 @@ export default function Exercicios({ data, update }) {
               <thead>
                 <tr>
                   <th>Data</th>
-                  <th>Destaque</th>
+                  <th>Exercício</th>
                   <th>Reps/Tempo</th>
+                  <th>Carga</th>
                   <th>Observações</th>
                   <th></th>
                 </tr>
@@ -225,6 +245,7 @@ export default function Exercicios({ data, update }) {
                     </td>
                     <td>{r.destaque}</td>
                     <td>{r.repeticoes}</td>
+                    <td style={{ fontWeight: 500, color: 'var(--text-muted)', fontSize: 12 }}>{r.carga || '—'}</td>
                     <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{r.observacoes}</td>
                     <td><button className="btn btn-danger" onClick={() => deleteRegistro(r.id)}>✕</button></td>
                   </tr>
@@ -234,6 +255,99 @@ export default function Exercicios({ data, update }) {
           </div>
         )}
       </div>
+
+      {/* Progressão por exercício */}
+      {exerciciosHistorico.length > 0 && (
+        <div className="card" style={{ marginTop: 20 }}>
+          <div className="section-header-row" style={{ marginBottom: 14 }}>
+            <div className="card-title" style={{ margin: 0 }}>Evolução por exercício</div>
+            <select
+              value={progressaoEx}
+              onChange={e => setProgressaoEx(e.target.value)}
+              style={{ fontSize: 13, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--white)', color: 'var(--text)', cursor: 'pointer', minWidth: 180 }}
+            >
+              <option value="">Selecionar exercício...</option>
+              {exerciciosHistorico.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+
+          {progressaoEx && progressaoData.length === 0 && (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhum registro para este exercício ainda.</p>
+          )}
+
+          {progressaoData.length > 0 && (
+            <>
+              {/* Mini sparkline de carga */}
+              {progressaoData.some(r => r.carga) && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Evolução de carga
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 48 }}>
+                    {(() => {
+                      const comCarga = progressaoData.filter(r => r.carga && parseFloat(r.carga) > 0)
+                      if (comCarga.length === 0) return null
+                      const vals = comCarga.map(r => parseFloat(r.carga) || 0)
+                      const max = Math.max(...vals)
+                      const min = Math.min(...vals)
+                      const range = max - min || 1
+                      return comCarga.map((r, i) => {
+                        const v = parseFloat(r.carga) || 0
+                        const h = Math.max(8, Math.round(((v - min) / range) * 36) + 8)
+                        const isLast = i === comCarga.length - 1
+                        return (
+                          <div key={r.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flex: 1, maxWidth: 40 }} title={`${r.data ? new Date(r.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''}: ${r.carga}kg`}>
+                            <div style={{ width: '100%', height: h, background: isLast ? 'var(--accent)' : 'var(--border)', borderRadius: 4, transition: 'height 0.3s' }} />
+                            {isLast && <span style={{ fontSize: 9, color: 'var(--accent)', fontWeight: 700 }}>{r.carga}</span>}
+                          </div>
+                        )
+                      })
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              <div className="table-wrap">
+                <table style={{ fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Reps/Tempo</th>
+                      <th>Carga</th>
+                      <th>Observações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...progressaoData].reverse().map((r, idx) => {
+                      const prev = progressaoData[progressaoData.length - 2 - idx]
+                      const cargaNum = parseFloat(r.carga) || 0
+                      const prevNum = parseFloat(prev?.carga) || 0
+                      const delta = cargaNum && prevNum ? cargaNum - prevNum : null
+                      return (
+                        <tr key={r.id}>
+                          <td style={{ fontWeight: 600, color: 'var(--accent)', whiteSpace: 'nowrap' }}>
+                            {r.data ? new Date(r.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
+                          </td>
+                          <td>{r.repeticoes || '—'}</td>
+                          <td style={{ fontWeight: 600 }}>
+                            {r.carga || '—'}
+                            {delta !== null && (
+                              <span style={{ fontSize: 10, marginLeft: 4, color: delta > 0 ? 'var(--green)' : delta < 0 ? 'var(--red)' : 'var(--text-muted)', fontWeight: 700 }}>
+                                {delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : '='}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ color: 'var(--text-muted)' }}>{r.observacoes || '—'}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </>
   )
 }
