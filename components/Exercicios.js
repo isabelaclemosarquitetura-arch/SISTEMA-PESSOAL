@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
+import { t, DIAS_SHORT_EN } from '../lib/i18n'
 
 const DIAS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom']
-const DIAS_LABEL = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb', dom: 'Dom' }
+const DIAS_LABEL_PT = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb', dom: 'Dom' }
 const EMPTY_REGISTRO = { data: '', destaque: '', repeticoes: '', carga: '', observacoes: '' }
 
 function toISO(d) {
@@ -16,7 +17,9 @@ function getWeekBounds() {
   return { seg, dom }
 }
 
-export default function Exercicios({ data, update }) {
+export default function Exercicios({ data, update, lang = 'pt' }) {
+  const DIAS_LABEL = lang === 'en' ? DIAS_SHORT_EN : DIAS_LABEL_PT
+  const locale = lang === 'en' ? 'en-US' : 'pt-BR'
   const plano    = data.exercicios?.plano    || {}
   const historico = data.exercicios?.historico || []
   const [registro, setRegistro] = useState({ ...EMPTY_REGISTRO })
@@ -98,8 +101,8 @@ export default function Exercicios({ data, update }) {
   return (
     <>
       <div className="page-header">
-        <h2>Treino em Casa</h2>
-        <p>Plano semanal e histórico de evolução</p>
+        <h2>{t(lang,'ex.title')}</h2>
+        <p>{t(lang,'ex.sub')}</p>
       </div>
 
       {/* Cards de resumo semanal */}
@@ -108,7 +111,7 @@ export default function Exercicios({ data, update }) {
           <div className="stat-value" style={{ color: treinosSemana >= 3 ? 'var(--green)' : 'var(--accent)' }}>
             {treinosSemana}
           </div>
-          <div className="stat-label">treinos esta semana</div>
+          <div className="stat-label">{t(lang,'ex.weekWorkouts')}</div>
           <div className="progress-bar" style={{ marginTop: 10 }}>
             <div className="progress-fill" style={{ width: `${Math.min(100, (treinosSemana / 5) * 100)}%` }} />
           </div>
@@ -117,26 +120,26 @@ export default function Exercicios({ data, update }) {
           <div className="stat-value" style={{ color: streakAtual >= 3 ? 'var(--green)' : 'var(--text)' }}>
             {streakAtual}
           </div>
-          <div className="stat-label">dias seguidos 🔥</div>
+          <div className="stat-label">{t(lang,'ex.streak')}</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div className="stat-value" style={{ color: 'var(--blue)' }}>{treinosMes}</div>
-          <div className="stat-label">treinos este mês</div>
+          <div className="stat-label">{t(lang,'ex.monthWorkouts')}</div>
         </div>
       </div>
 
       {/* Tabela do plano */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-title">Plano Semanal</div>
+        <div className="card-title">{t(lang,'ex.weekPlan')}</div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th style={{ minWidth: 160 }}>Exercício</th>
+                <th style={{ minWidth: 160 }}>{t(lang,'ex.exercise')}</th>
                 {DIAS.map(d => <th key={d} style={{ textAlign: 'center', width: 48 }}>{DIAS_LABEL[d]}</th>)}
-                <th style={{ width: 70 }}>Séries</th>
-                <th style={{ width: 90 }}>Reps/Tempo</th>
-                <th>Obs.</th>
+                <th style={{ width: 70 }}>{t(lang,'ex.sets')}</th>
+                <th style={{ width: 90 }}>{t(lang,'ex.reps')}</th>
+                <th>{t(lang,'ex.obs')}</th>
                 <th style={{ width: 40 }}></th>
               </tr>
             </thead>
@@ -179,7 +182,7 @@ export default function Exercicios({ data, update }) {
         <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
           <input
             type="text"
-            placeholder="Adicionar exercício..."
+            placeholder={t(lang,'ex.addPh')}
             value={novoExercicio}
             onChange={e => setNovoExercicio(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addExercicio()}

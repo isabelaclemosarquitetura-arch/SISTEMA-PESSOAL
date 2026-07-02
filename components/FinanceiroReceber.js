@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { t } from '../lib/i18n'
 import { fmt, moneyNumber, hojeISO } from '../lib/finance'
 
-export default function FinanceiroReceber({ data, update }) {
+export default function FinanceiroReceber({ data, update, lang = 'pt' }) {
   const [feedback, setFeedback] = useState('')
   const lancamentos = data.financeiro || []
   const hoje = hojeISO()
@@ -41,47 +42,47 @@ export default function FinanceiroReceber({ data, update }) {
   return (
     <>
       <div className="page-header">
-        <h2>Valores a Receber</h2>
-        <p>Receitas previstas que ainda não entraram no saldo, e recebimentos confirmados</p>
+        <h2>{t(lang,'rec.title')}</h2>
+        <p>{t(lang,'rec.sub')}</p>
       </div>
 
       {feedback && <div className="toast-inline">{feedback}</div>}
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Total previsto</div>
+          <div className="card-title">{t(lang,'rec.totalExp')}</div>
           <div className="stat-value" style={{ color: 'var(--blue)', fontSize: 20 }}>{fmt(totalPrevisto)}</div>
         </div>
         <div className="card">
-          <div className="card-title">Em atraso</div>
+          <div className="card-title">{t(lang,'rec.late')}</div>
           <div className="stat-value" style={{ color: totalAtrasado > 0 ? 'var(--red)' : 'var(--text)', fontSize: 20 }}>{fmt(totalAtrasado)}</div>
-          <div className="muted-small">{atrasadas.length} recebimento{atrasadas.length !== 1 ? 's' : ''}</div>
+          <div className="muted-small">{atrasadas.length} {atrasadas.length !== 1 ? t(lang,'rec.payments') : t(lang,'rec.payment')}</div>
         </div>
         <div className="card">
-          <div className="card-title">Próximos 7 dias</div>
+          <div className="card-title">{t(lang,'rec.next7')}</div>
           <div className="stat-value" style={{ fontSize: 20 }}>{fmt(proximos7dias.reduce((s, l) => s + moneyNumber(l.valor), 0))}</div>
-          <div className="muted-small">{proximos7dias.length} recebimento{proximos7dias.length !== 1 ? 's' : ''}</div>
+          <div className="muted-small">{proximos7dias.length} {proximos7dias.length !== 1 ? t(lang,'rec.payments') : t(lang,'rec.payment')}</div>
         </div>
         <div className="card">
-          <div className="card-title">Recebido este mês</div>
+          <div className="card-title">{t(lang,'rec.receivedMonth')}</div>
           <div className="stat-value" style={{ color: 'var(--green)', fontSize: 20 }}>{fmt(totalRecebidoMes)}</div>
         </div>
       </div>
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-title">Próximos recebimentos ({previstas.length})</div>
+        <div className="card-title">{t(lang,'rec.upcomingTitle',previstas.length)}</div>
         {previstas.length === 0 ? (
-          <p className="muted-small">Nenhuma receita prevista pendente. Tudo recebido!</p>
+          <p className="muted-small">{t(lang,'rec.none')}</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Descrição</th>
-                  <th>Categoria</th>
-                  <th>Valor</th>
-                  <th>Data prevista</th>
-                  <th>Situação</th>
+                  <th>{t(lang,'rec.desc')}</th>
+                  <th>{t(lang,'rec.cat')}</th>
+                  <th>{t(lang,'rec.value')}</th>
+                  <th>{t(lang,'rec.expectedDate')}</th>
+                  <th>{t(lang,'rec.situation')}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -94,9 +95,9 @@ export default function FinanceiroReceber({ data, update }) {
                       <td className="muted-cell">{l.categoria}</td>
                       <td style={{ fontWeight: 600, color: 'var(--green)' }}>{fmt(l.valor)}</td>
                       <td className="muted-cell">{l.vencimento}</td>
-                      <td><span className={`badge ${atrasada ? 'badge-red' : 'badge-blue'}`}>{atrasada ? 'Atrasada' : 'No prazo'}</span></td>
+                      <td><span className={`badge ${atrasada ? 'badge-red' : 'badge-blue'}`}>{atrasada ? t(lang,'rec.lateBadge') : t(lang,'rec.onTime')}</span></td>
                       <td className="table-actions">
-                        <button className="btn btn-primary btn-sm" onClick={() => marcarRecebida(l)}>Marcar como recebido</button>
+                        <button className="btn btn-primary btn-sm" onClick={() => marcarRecebida(l)}>{t(lang,'rec.markReceived')}</button>
                       </td>
                     </tr>
                   )
@@ -108,18 +109,18 @@ export default function FinanceiroReceber({ data, update }) {
       </div>
 
       <div className="card">
-        <div className="card-title">Recebidas recentemente</div>
+        <div className="card-title">{t(lang,'rec.recentTitle')}</div>
         {recebidas.length === 0 ? (
-          <p className="muted-small">Nenhuma receita recebida ainda.</p>
+          <p className="muted-small">{t(lang,'rec.noneReceived')}</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Descrição</th>
-                  <th>Categoria</th>
-                  <th>Valor</th>
-                  <th>Recebida em</th>
+                  <th>{t(lang,'rec.desc')}</th>
+                  <th>{t(lang,'rec.cat')}</th>
+                  <th>{t(lang,'rec.value')}</th>
+                  <th>{t(lang,'rec.receivedOn')}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -131,7 +132,7 @@ export default function FinanceiroReceber({ data, update }) {
                     <td style={{ fontWeight: 600, color: 'var(--green)' }}>{fmt(l.valor)}</td>
                     <td className="muted-cell">{l.dataRecebimento}</td>
                     <td className="table-actions">
-                      <button className="btn btn-ghost btn-sm" onClick={() => reabrir(l)}>Reabrir como prevista</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => reabrir(l)}>{t(lang,'rec.reopen')}</button>
                     </td>
                   </tr>
                 ))}

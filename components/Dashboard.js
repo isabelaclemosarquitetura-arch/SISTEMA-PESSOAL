@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { MESES, fmt, moneyNumber, calcularValorAtualInvestimento } from '../lib/finance'
+import { t } from '../lib/i18n'
 
 const HABITOS_DEFAULT = [
   'Beber 2L de água',
@@ -42,7 +43,7 @@ function getMondayOfWeek(date) {
   return d
 }
 
-export default function Dashboard({ data, update, setTab }) {
+export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
   const today = new Date()
   const todayKey = fmtKey(today)
   const mesAtual = MESES[today.getMonth()]
@@ -236,10 +237,10 @@ export default function Dashboard({ data, update, setTab }) {
         const diffDias = Math.round((venc - hoje) / 86400000)
         let urgencia = 'upcoming'
         let urgenciaLabel = ''
-        if (diffDias < 0) { urgencia = 'overdue'; urgenciaLabel = `${Math.abs(diffDias)}d atrasada` }
-        else if (diffDias === 0) { urgencia = 'today'; urgenciaLabel = 'Vence hoje' }
-        else if (diffDias <= 3) { urgencia = 'soon'; urgenciaLabel = `em ${diffDias}d` }
-        else { urgenciaLabel = `em ${diffDias}d` }
+        if (diffDias < 0) { urgencia = 'overdue'; urgenciaLabel = `${Math.abs(diffDias)}${t(lang, 'dash.overdueBadge')}` }
+        else if (diffDias === 0) { urgencia = 'today'; urgenciaLabel = t(lang, 'dash.dueToday') }
+        else if (diffDias <= 3) { urgencia = 'soon'; urgenciaLabel = t(lang, 'dash.inDays', diffDias) }
+        else { urgenciaLabel = t(lang, 'dash.inDays', diffDias) }
         return { ...l, venc, diffDias, urgencia, urgenciaLabel }
       })
       .filter(l => l.diffDias <= 30)
@@ -251,47 +252,47 @@ export default function Dashboard({ data, update, setTab }) {
     <>
       <div className="page-header">
         <h2>Dashboard</h2>
-        <p>{today.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
+        <p>{today.toLocaleDateString(lang === 'en' ? 'en-US' : 'pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>
       </div>
 
       {/* ── RESUMO SEMANAL ── */}
       <div className="weekly-summary" style={{ marginBottom: 24 }}>
         <div className="weekly-summary-item">
-          <div className="weekly-summary-label">Semana — tarefas</div>
+          <div className="weekly-summary-label">{t(lang, 'dash.weekTasks')}</div>
           <div className="weekly-summary-value" style={{ color: resumoSemana.tarefasTotais > 0 && resumoSemana.tarefasFeitas === resumoSemana.tarefasTotais ? 'var(--green)' : 'var(--text)' }}>
             {resumoSemana.tarefasFeitas}/{resumoSemana.tarefasTotais}
           </div>
-          <div className="weekly-summary-sub">concluídas esta semana</div>
+          <div className="weekly-summary-sub">{t(lang, 'dash.doneWeek')}</div>
         </div>
         <div className="weekly-summary-item">
-          <div className="weekly-summary-label">Semana — hábitos</div>
+          <div className="weekly-summary-label">{t(lang, 'dash.weekHabits')}</div>
           <div className="weekly-summary-value" style={{ color: resumoSemana.pctHabitos >= 80 ? 'var(--green)' : resumoSemana.pctHabitos >= 50 ? 'var(--yellow)' : 'var(--red)' }}>
             {resumoSemana.pctHabitos}%
           </div>
-          <div className="weekly-summary-sub">média nos últimos {resumoSemana.diasSemana}d</div>
+          <div className="weekly-summary-sub">{t(lang, 'dash.avgLast')} {resumoSemana.diasSemana}d</div>
         </div>
         <div className="weekly-summary-item">
-          <div className="weekly-summary-label">Melhor sequência</div>
+          <div className="weekly-summary-label">{t(lang, 'dash.bestStreak')}</div>
           <div className="weekly-summary-value" style={{ color: melhorStreak >= 7 ? 'var(--green)' : melhorStreak >= 3 ? 'var(--accent)' : 'var(--text)' }}>
             {melhorStreak > 0 ? `${melhorStreak}d 🔥` : '—'}
           </div>
-          <div className="weekly-summary-sub">dias seguidos (hábito)</div>
+          <div className="weekly-summary-sub">{t(lang, 'dash.daysStreak')}</div>
         </div>
         <div className="weekly-summary-item">
-          <div className="weekly-summary-label">Patrimônio total</div>
+          <div className="weekly-summary-label">{t(lang, 'dash.netWorth')}</div>
           <div className="weekly-summary-value" style={{ fontSize: 16, color: patrimonioTotal >= 0 ? 'var(--green)' : 'var(--red)' }}>
             {fmt(patrimonioTotal)}
           </div>
-          <div className="weekly-summary-sub">saldo + invest. − a pagar</div>
+          <div className="weekly-summary-sub">{t(lang, 'dash.netWorthSub')}</div>
         </div>
       </div>
 
       {/* ── SEÇÃO 1: TAREFAS (prioridade máxima) ── */}
-      <div className="dashboard-section-label">📋 Próximas tarefas</div>
+      <div className="dashboard-section-label">{t(lang, 'dash.upcomingTasks')}</div>
       <div className="grid-2" style={{ marginBottom: 20 }}>
         <div className="card dash-tasks-card" onClick={() => setTab('agenda')} style={{ cursor: 'pointer' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div className="card-title" style={{ margin: 0 }}>Hoje — {feitas}/{tarefasHoje} concluídas</div>
+            <div className="card-title" style={{ margin: 0 }}>{t(lang, 'dash.todayCompleted', feitas, tarefasHoje)}</div>
             <span className={`badge ${feitas === tarefasHoje && tarefasHoje > 0 ? 'badge-green' : feitas > 0 ? 'badge-yellow' : 'badge-gray'}`}>
               {pct(feitas, tarefasHoje)}%
             </span>
@@ -300,7 +301,7 @@ export default function Dashboard({ data, update, setTab }) {
             <div className="progress-fill" style={{ width: `${pct(feitas, tarefasHoje)}%` }} />
           </div>
           {agendaHoje.tasks.filter(t => t.trim()).length === 0 ? (
-            <p className="muted-small">Nenhuma tarefa cadastrada para hoje.</p>
+            <p className="muted-small">{t(lang, 'dash.noTasksToday')}</p>
           ) : agendaHoje.tasks.map((t, i) => t.trim() ? (
             <div key={i} className="dash-task-row">
               <span className={`dash-task-dot ${agendaHoje.checks[i] ? 'done' : ''}`} />
@@ -310,9 +311,9 @@ export default function Dashboard({ data, update, setTab }) {
         </div>
 
         <div className="card" onClick={() => setTab('agenda')} style={{ cursor: 'pointer' }}>
-          <div className="card-title">Próximos 7 dias</div>
+          <div className="card-title">{t(lang, 'dash.next7')}</div>
           {proximasTarefas.length === 0 ? (
-            <p className="muted-small">Nenhuma tarefa pendente nos próximos dias. 🎉</p>
+            <p className="muted-small">{t(lang, 'dash.noNext')}</p>
           ) : (
             proximasTarefas.map((t, i) => (
               <div key={i} className="list-row" style={{ padding: '7px 0' }}>
@@ -325,11 +326,11 @@ export default function Dashboard({ data, update, setTab }) {
       </div>
 
       {/* ── SEÇÃO 2: HÁBITOS ── */}
-      <div className="dashboard-section-label">🔁 Hábitos de hoje</div>
+      <div className="dashboard-section-label">{t(lang, 'dash.habitsSection')}</div>
       <div className="card" style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div className="card-title" style={{ margin: 0 }}>
-            {habitosFeitos}/{habitosLista.length} concluídos
+            {t(lang, 'dash.completedOf', habitosFeitos, habitosLista.length)}
           </div>
           <span className={`badge ${percentualHabitos === 100 ? 'badge-green' : percentualHabitos >= 50 ? 'badge-yellow' : 'badge-gray'}`}>
             {percentualHabitos}%
@@ -349,58 +350,58 @@ export default function Dashboard({ data, update, setTab }) {
       </div>
 
       {/* ── SEÇÃO 3: INDICADORES RÁPIDOS ── */}
-      <div className="dashboard-section-label">📊 Visão geral</div>
+      <div className="dashboard-section-label">{t(lang, 'dash.overview')}</div>
       <div className="grid-4" style={{ marginBottom: 16 }}>
         <div className="card card-clickable" onClick={() => setTab('agenda')}>
-          <div className="card-title">Agenda hoje</div>
+          <div className="card-title">{t(lang, 'dash.agendaToday')}</div>
           <div className="stat-value">{feitas}/{tarefasHoje}</div>
-          <div className="stat-label">tarefas concluídas</div>
+          <div className="stat-label">{t(lang, 'dash.tasksDone')}</div>
         </div>
 
         <div className="card card-clickable" onClick={() => setTab('habitos')}>
-          <div className="card-title">Hábitos hoje</div>
+          <div className="card-title">{t(lang, 'dash.habitsCard')}</div>
           <div className="stat-value">{percentualHabitos}%</div>
-          <div className="stat-label">{habitosFeitos}/{habitosLista.length} feitos</div>
+          <div className="stat-label">{t(lang, 'dash.habitsDoneOf', habitosFeitos, habitosLista.length)}</div>
         </div>
 
         <div className="card card-clickable" onClick={() => setTab('metas')}>
-          <div className="card-title">Metas ativas</div>
+          <div className="card-title">{t(lang, 'dash.activeGoals')}</div>
           <div className="stat-value">{metasAtivas}</div>
-          <div className="stat-label">em andamento</div>
+          <div className="stat-label">{t(lang, 'dash.inProgress')}</div>
           {metasConcluidas > 0 && (
-            <div style={{ marginTop: 8 }}><span className="badge badge-green">{metasConcluidas} concluída{metasConcluidas > 1 ? 's' : ''}</span></div>
+            <div style={{ marginTop: 8 }}><span className="badge badge-green">{metasConcluidas} {metasConcluidas > 1 ? t(lang, 'dash.concluidasPlural') : t(lang, 'dash.concluidas')}</span></div>
           )}
         </div>
 
         <div className="card card-clickable" onClick={() => setTab('financeiro')}>
-          <div className="card-title">Patrimônio total</div>
+          <div className="card-title">{t(lang, 'dash.netWorthCard')}</div>
           <div className="stat-value" style={{ color: patrimonioTotal >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 20 }}>{fmt(patrimonioTotal)}</div>
-          <div className="stat-label">saldo + invest. − a pagar</div>
+          <div className="stat-label">{t(lang, 'dash.netWorthCardSub')}</div>
         </div>
       </div>
 
       {/* ── SEÇÃO 4: FINANCEIRO ── */}
-      <div className="dashboard-section-label">💰 Financeiro — {mesAtual}</div>
+      <div className="dashboard-section-label">{t(lang, 'dash.financeSec', mesAtual)}</div>
       <div className="grid-4" style={{ marginBottom: 16 }}>
         <div className="card card-clickable" onClick={() => setTab('financeiro')}>
-          <div className="card-title">Saldo atual</div>
+          <div className="card-title">{t(lang, 'dash.currentBalance')}</div>
           <div className="stat-value" style={{ color: saldoAtual >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 19 }}>{fmt(saldoAtual)}</div>
-          <div className="muted-small">recebido − pago (histórico)</div>
+          <div className="muted-small">{t(lang, 'dash.receivedMinusPaid')}</div>
         </div>
         <div className="card card-clickable" onClick={() => setTab('financeiro')}>
-          <div className="card-title">A pagar</div>
+          <div className="card-title">{t(lang, 'dash.payable')}</div>
           <div className="stat-value" style={{ color: 'var(--yellow)', fontSize: 19 }}>{fmt(contasAPagar)}</div>
-          <div className="muted-small">despesas pendentes</div>
+          <div className="muted-small">{t(lang, 'dash.pendingExpenses')}</div>
         </div>
         <div className="card card-clickable" onClick={() => setTab('financeiro')}>
-          <div className="card-title">A receber</div>
+          <div className="card-title">{t(lang, 'dash.toReceive')}</div>
           <div className="stat-value" style={{ color: 'var(--blue)', fontSize: 19 }}>{fmt(contasAReceber)}</div>
-          <div className="muted-small">receitas previstas</div>
+          <div className="muted-small">{t(lang, 'dash.projectedIncSub')}</div>
         </div>
         <div className="card card-clickable" onClick={() => setTab('financeiro')}>
-          <div className="card-title">Investimentos</div>
+          <div className="card-title">{t(lang, 'dash.investments')}</div>
           <div className="stat-value" style={{ color: 'var(--green)', fontSize: 19 }}>{fmt(investimentosValorAtual)}</div>
-          <div className="muted-small">valor atual da carteira</div>
+          <div className="muted-small">{t(lang, 'dash.portfolioValue')}</div>
         </div>
       </div>
 
@@ -408,13 +409,13 @@ export default function Dashboard({ data, update, setTab }) {
       <div className="grid-2" style={{ marginBottom: 16 }}>
         <div className="card" onClick={() => setTab('financeiro')} style={{ cursor: 'pointer' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div className="card-title" style={{ margin: 0 }}>Próximas contas a vencer</div>
+            <div className="card-title" style={{ margin: 0 }}>{t(lang, 'dash.upcomingBills')}</div>
             {proximasContas.some(c => c.urgencia === 'overdue' || c.urgencia === 'today') && (
-              <span className="badge badge-red" style={{ fontSize: 10 }}>⚠ Atenção</span>
+              <span className="badge badge-red" style={{ fontSize: 10 }}>{t(lang, 'dash.attention')}</span>
             )}
           </div>
           {proximasContas.length === 0 ? (
-            <p className="muted-small">Nenhuma despesa pendente com vencimento nos próximos 30 dias. ✅</p>
+            <p className="muted-small">{t(lang, 'dash.noBills')}</p>
           ) : (
             <div className="bill-list">
               {proximasContas.map(c => (
@@ -425,7 +426,7 @@ export default function Dashboard({ data, update, setTab }) {
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                       {c.categoria && <span>{c.categoria} · </span>}
-                      {c.venc.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      {c.venc.toLocaleDateString(lang === 'en' ? 'en-US' : 'pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                     </div>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{fmt(c.valor)}</div>
@@ -441,15 +442,15 @@ export default function Dashboard({ data, update, setTab }) {
         {/* Card de resumo do mês — segunda coluna do grid */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="card">
-            <div className="card-title">Receitas previstas — {mesAtual}</div>
+            <div className="card-title">{t(lang, 'dash.projectedIncomeMes', mesAtual)}</div>
             <div className="stat-value" style={{ fontSize: 18, color: 'var(--green)' }}>{fmt(receitasPrevistasMes)}</div>
           </div>
           <div className="card">
-            <div className="card-title">Despesas previstas — {mesAtual}</div>
+            <div className="card-title">{t(lang, 'dash.projectedExpMes', mesAtual)}</div>
             <div className="stat-value" style={{ fontSize: 18, color: 'var(--red)' }}>{fmt(despesasPrevistasMes)}</div>
           </div>
           <div className="card">
-            <div className="card-title">Meta mensal de aporte</div>
+            <div className="card-title">{t(lang, 'dash.monthlyContrib')}</div>
             <div className="stat-value" style={{ fontSize: 18, color: 'var(--accent)' }}>{fmt(aporteMensalPlanejado)}</div>
           </div>
         </div>
@@ -459,9 +460,9 @@ export default function Dashboard({ data, update, setTab }) {
       {/* ── SEÇÃO 5: GRÁFICOS FINANCEIROS ── */}
       <div className="grid-2" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Gastos por categoria — {mesAtual}</div>
+          <div className="card-title">{t(lang, 'dash.expByCat', mesAtual)}</div>
           {gastosPorCategoria.length === 0 ? (
-            <p className="muted-small">Nenhuma despesa registrada neste mês.</p>
+            <p className="muted-small">{t(lang, 'dash.noExpenses')}</p>
           ) : gastosPorCategoria.map(item => (
             <div key={item.categoria} className="bar-row">
               <div className="bar-row-label"><span>{item.categoria}</span><strong>{fmt(item.total)}</strong></div>
@@ -471,34 +472,34 @@ export default function Dashboard({ data, update, setTab }) {
         </div>
 
         <div className="card">
-          <div className="card-title">Receitas × despesas</div>
+          <div className="card-title">{t(lang, 'dash.incomeVsExp')}</div>
           <div className="monthly-chart" style={{ minHeight: 140 }}>
             {evolucaoFinanceira.map(item => (
               <div key={item.mes} className="monthly-group">
                 <div className="monthly-bars" style={{ height: 100 }}>
-                  <span className="income" style={{ height: `${Math.max(4, (item.receitas / maxEvolucaoFin) * 100)}%` }} title={`Receitas: ${fmt(item.receitas)}`} />
-                  <span className="expense" style={{ height: `${Math.max(4, (item.despesas / maxEvolucaoFin) * 100)}%` }} title={`Despesas: ${fmt(item.despesas)}`} />
+                  <span className="income" style={{ height: `${Math.max(4, (item.receitas / maxEvolucaoFin) * 100)}%` }} title={`${t(lang,'dash.income')}: ${fmt(item.receitas)}`} />
+                  <span className="expense" style={{ height: `${Math.max(4, (item.despesas / maxEvolucaoFin) * 100)}%` }} title={`${t(lang,'dash.expenses')}: ${fmt(item.despesas)}`} />
                 </div>
                 <div className="monthly-label">{item.mes.slice(0, 3)}</div>
               </div>
             ))}
           </div>
           <div className="chart-legend">
-            <span><i className="legend-income" /> Receitas</span>
-            <span><i className="legend-expense" /> Despesas</span>
+            <span><i className="legend-income" /> {t(lang, 'dash.income')}</span>
+            <span><i className="legend-expense" /> {t(lang, 'dash.expenses')}</span>
           </div>
         </div>
       </div>
 
       {/* ── SEÇÃO 6: INVESTIMENTOS ── */}
-      <div className="dashboard-section-label">📈 Investimentos</div>
+      <div className="dashboard-section-label">{t(lang, 'dash.investSection')}</div>
 
       {/* Evolução histórica (só a partir do 1º investimento) */}
       <div className="grid-2" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Evolução dos aportes ({today.getFullYear()})</div>
+          <div className="card-title">{t(lang, 'dash.portfolioEvol', today.getFullYear())}</div>
           {evolucaoInvestimentos.length === 0 ? (
-            <p className="muted-small">Nenhum investimento com data registrada neste ano.</p>
+            <p className="muted-small">{t(lang, 'dash.noInvestments')}</p>
           ) : evolucaoInvestimentos.map(item => (
             <div key={item.mes} className="bar-row">
               <div className="bar-row-label">
@@ -515,26 +516,26 @@ export default function Dashboard({ data, update, setTab }) {
 
         {/* Projeção futura */}
         <div className="card">
-          <div className="card-title">Projeção — próximos 12 meses</div>
+          <div className="card-title">{t(lang, 'dash.projection12m')}</div>
           {aporteMensalPlanejado === 0 && investimentosValorAtual === 0 ? (
-            <p className="muted-small">Cadastre investimentos com aporte mensal para ver a projeção.</p>
+            <p className="muted-small">{t(lang, 'dash.noInvestments')}</p>
           ) : (
             <>
               <div className="grid-2" style={{ marginBottom: 14, gap: 10 }}>
                 <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Patrimônio atual</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t(lang, 'dash.investments')}</div>
                   <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--text)' }}>{fmt(investimentosValorAtual)}</div>
                 </div>
                 <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valor projetado (12m)</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t(lang, 'dash.projectedValue')}</div>
                   <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--accent)' }}>{fmt(valorProjetado12m)}</div>
                 </div>
                 <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ganho por rendimento</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t(lang, 'dash.estimatedGain')}</div>
                   <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--green)' }}>{fmt(Math.max(0, ganhoEstimado))}</div>
                 </div>
                 <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '10px 12px' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total aportado projetado</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t(lang, 'dash.totalContrib12')}</div>
                   <div style={{ fontSize: 17, fontWeight: 700, marginTop: 4, color: 'var(--text)' }}>{fmt(totalAportadoProjetado)}</div>
                 </div>
               </div>
@@ -558,7 +559,7 @@ export default function Dashboard({ data, update, setTab }) {
                 </div>
               </div>
               <p className="muted-small" style={{ marginTop: 8 }}>
-                Estimativa com CDI {Number(configCDI.taxaAnual || 0).toFixed(2)}% a.a. + {fmt(aporteMensalPlanejado)}/mês de aportes. Valores aproximados.
+                {t(lang, 'dash.projectionNote', Number(configCDI.taxaAnual || 0).toFixed(2), fmt(aporteMensalPlanejado))}
               </p>
             </>
           )}
@@ -566,18 +567,18 @@ export default function Dashboard({ data, update, setTab }) {
       </div>
 
       {/* ── SEÇÃO 7: METAS ── */}
-      <div className="dashboard-section-label">🎯 Metas</div>
+      <div className="dashboard-section-label">🎯 {t(lang, 'tab.metas')}</div>
       <div className="card">
-        <div className="card-title">Visão geral das metas</div>
+        <div className="card-title">{t(lang, 'dash.goalsOverview')}</div>
         <div className="dashboard-goals">
           {(data.metas || []).map(m => (
             <div key={m.id} className="goal-row">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 4 }}>
                 <div>
                   <div className="meta-area-label">{m.area}</div>
-                  <div style={{ fontSize: 13 }}>{m.meta || <span style={{ color: 'var(--text-muted)' }}>Não definida</span>}</div>
+                  <div style={{ fontSize: 13 }}>{m.meta || <span style={{ color: 'var(--text-muted)' }}>{t(lang, 'dash.notDefined')}</span>}</div>
                 </div>
-                <span className={`badge ${m.status === 'Concluída' ? 'badge-green' : m.status === 'Em andamento' ? 'badge-blue' : 'badge-gray'}`}>{m.status}</span>
+                <span className={`badge ${m.status === 'Concluída' ? 'badge-green' : m.status === 'Em andamento' ? 'badge-blue' : 'badge-gray'}`}>{t(lang, `met.status.${m.status}`) || m.status}</span>
               </div>
               <div className="progress-bar"><div className="progress-fill" style={{ width: `${m.progresso || 0}%` }} /></div>
               <div className="muted-small" style={{ marginTop: 3 }}>{m.progresso || 0}%</div>

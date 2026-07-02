@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { t } from '../lib/i18n'
 
 const STATUS_OPTIONS = ['Pendente', 'Em andamento', 'Concluída', 'Pausada']
+const STATUS_T_KEY = { 'Pendente': 'met.statusPendente', 'Em andamento': 'met.statusAndamento', 'Concluída': 'met.statusConcluida', 'Pausada': 'met.statusPausada' }
 const BADGE_MAP = {
   'Pendente':      'badge-gray',
   'Em andamento':  'badge-blue',
@@ -8,11 +10,11 @@ const BADGE_MAP = {
   'Pausada':       'badge-yellow',
 }
 
-function getSemestreLabel() {
+function getSemestreLabel(lang) {
   const now = new Date()
-  const mes = now.getMonth() // 0-11
+  const mes = now.getMonth()
   const ano = now.getFullYear()
-  return mes < 6 ? `1º Semestre ${ano}` : `2º Semestre ${ano}`
+  return mes < 6 ? t(lang, 'met.sem1', ano) : t(lang, 'met.sem2', ano)
 }
 
 function diasRestantes(prazo) {
@@ -21,18 +23,19 @@ function diasRestantes(prazo) {
   return Math.round((new Date(prazo + 'T00:00:00') - hoje) / 86400000)
 }
 
-function PrazoLabel({ prazo }) {
+function PrazoLabel({ prazo, lang = 'pt' }) {
   if (!prazo) return null
   const dias = diasRestantes(prazo)
-  const data = new Date(prazo + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  if (dias < 0)  return <span style={{ fontSize: 11, color: 'var(--red)',   fontWeight: 600 }}>⚠ Prazo vencido há {Math.abs(dias)}d ({data})</span>
-  if (dias === 0) return <span style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600 }}>⚡ Prazo: hoje!</span>
-  if (dias <= 7)  return <span style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600 }}>⏳ {dias} dia{dias !== 1 ? 's' : ''} restante{dias !== 1 ? 's' : ''} ({data})</span>
-  if (dias <= 30) return <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>📅 {dias} dias restantes ({data})</span>
-  return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>📅 {data} ({dias} dias)</span>
+  const locale = lang === 'en' ? 'en-US' : 'pt-BR'
+  const data = new Date(prazo + 'T00:00:00').toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' })
+  if (dias < 0)  return <span style={{ fontSize: 11, color: 'var(--red)',   fontWeight: 600 }}>{t(lang,'met.overdueLabel',Math.abs(dias),data)}</span>
+  if (dias === 0) return <span style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600 }}>{t(lang,'met.todayDue')}</span>
+  if (dias <= 7)  return <span style={{ fontSize: 11, color: 'var(--yellow)', fontWeight: 600 }}>{t(lang,'met.daysLeftFew',dias,dias!==1?'s':'',dias!==1?'s':'',data)}</span>
+  if (dias <= 30) return <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 600 }}>{t(lang,'met.daysLeftMany',dias,data)}</span>
+  return <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{t(lang,'met.dateOnly',data,dias)}</span>
 }
 
-export default function Metas({ data, update }) {
+export default function Metas({ data, update, lang = 'pt' }) {
   const metas = data.metas || []
   const [expanded, setExpanded] = useState(null)
   const [novaArea, setNovaArea] = useState('')
@@ -74,11 +77,11 @@ export default function Metas({ data, update }) {
     <>
       <div className="page-header page-header-actions">
         <div>
-          <h2>Metas — {getSemestreLabel()}</h2>
-          <p>Acompanhe o progresso das suas metas por área</p>
+          <h2>{t(lang,'met.title')} — {getSemestreLabel(lang)}</h2>
+          <p>{t(lang,'met.sub')}</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowAddForm(s => !s)}>
-          + Nova meta
+          {t(lang,'met.newGoal')}
         </button>
       </div>
 
@@ -86,22 +89,22 @@ export default function Metas({ data, update }) {
       <div className="grid-4" style={{ marginBottom: 20 }}>
         <div className="card" style={{ textAlign: 'center' }}>
           <div className="stat-value" style={{ color: 'var(--accent)' }}>{progressoGeral}%</div>
-          <div className="stat-label">progresso geral</div>
+          <div className="stat-label">{t(lang,'met.overallProgress')}</div>
           <div className="progress-bar" style={{ marginTop: 10 }}>
             <div className="progress-fill" style={{ width: `${progressoGeral}%` }} />
           </div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div className="stat-value" style={{ color: 'var(--green)' }}>{concluidas}</div>
-          <div className="stat-label">concluídas</div>
+          <div className="stat-label">{t(lang,'met.completed')}</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div className="stat-value" style={{ color: 'var(--blue)' }}>{andamento}</div>
-          <div className="stat-label">em andamento</div>
+          <div className="stat-label">{t(lang,'met.inProgress')}</div>
         </div>
         <div className="card" style={{ textAlign: 'center' }}>
           <div className="stat-value" style={{ color: atrasadas > 0 ? 'var(--red)' : 'var(--text-muted)' }}>{atrasadas}</div>
-          <div className="stat-label">prazo vencido</div>
+          <div className="stat-label">{t(lang,'met.overdue')}</div>
         </div>
       </div>
 
@@ -109,18 +112,18 @@ export default function Metas({ data, update }) {
       {showAddForm && (
         <div className="meta-add-form" style={{ marginBottom: 16 }}>
           <div className="form-group" style={{ flex: 1, margin: 0 }}>
-            <label>Área da nova meta</label>
+            <label>{t(lang,'met.areaLabel')}</label>
             <input
               type="text"
               value={novaArea}
               onChange={e => setNovaArea(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addMeta()}
-              placeholder="Ex: Idiomas, Negócios, Criatividade..."
+              placeholder={t(lang,'met.areaPh')}
               autoFocus
             />
           </div>
-          <button className="btn btn-primary" onClick={addMeta} style={{ alignSelf: 'flex-end' }}>Criar</button>
-          <button className="btn btn-ghost" onClick={() => setShowAddForm(false)} style={{ alignSelf: 'flex-end' }}>Cancelar</button>
+          <button className="btn btn-primary" onClick={addMeta} style={{ alignSelf: 'flex-end' }}>{t(lang,'met.create')}</button>
+          <button className="btn btn-ghost" onClick={() => setShowAddForm(false)} style={{ alignSelf: 'flex-end' }}>{t(lang,'met.cancel')}</button>
         </div>
       )}
 
@@ -139,20 +142,20 @@ export default function Metas({ data, update }) {
                 <div style={{ flex: 1 }}>
                   <div className="meta-area-label">{m.area}</div>
                   <div style={{ fontSize: 14, fontWeight: m.meta ? 600 : 400, color: m.meta ? 'var(--text)' : 'var(--text-muted)', marginBottom: 4 }}>
-                    {m.meta || 'Clique para definir esta meta...'}
+                    {m.meta || t(lang,'met.clickToDefine')}
                   </div>
-                  <PrazoLabel prazo={m.prazo} />
+                  <PrazoLabel prazo={m.prazo} lang={lang} />
                 </div>
                 <div style={{ minWidth: 180 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Progresso</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{t(lang,'met.progress')}</span>
                     <span style={{ fontWeight: 700, color: 'var(--accent)' }}>{pct}%</span>
                   </div>
                   <div className="progress-bar">
                     <div className="progress-fill" style={{ width: `${pct}%` }} />
                   </div>
                 </div>
-                <span className={`badge ${BADGE_MAP[m.status] || 'badge-gray'}`}>{m.status}</span>
+                <span className={`badge ${BADGE_MAP[m.status] || 'badge-gray'}`}>{t(lang,STATUS_T_KEY[m.status]||m.status)}</span>
                 <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>{isOpen ? '▲' : '▼'}</span>
               </div>
 
@@ -161,25 +164,25 @@ export default function Metas({ data, update }) {
                 <div style={{ padding: '0 20px 20px', borderTop: '1px solid var(--border)' }}>
                   <div className="grid-2" style={{ marginTop: 16, gap: 12 }}>
                     <div className="form-group">
-                      <label>Meta</label>
-                      <input type="text" value={m.meta} onChange={e => updateMeta(m.id, 'meta', e.target.value)} placeholder="O que você quer alcançar?" />
+                      <label>{t(lang,'met.goalField')}</label>
+                      <input type="text" value={m.meta} onChange={e => updateMeta(m.id, 'meta', e.target.value)} placeholder={t(lang,'met.goalPh')} />
                     </div>
                     <div className="form-group">
-                      <label>Por que é importante?</label>
-                      <input type="text" value={m.porque} onChange={e => updateMeta(m.id, 'porque', e.target.value)} placeholder="Sua motivação..." />
+                      <label>{t(lang,'met.whyField')}</label>
+                      <input type="text" value={m.porque} onChange={e => updateMeta(m.id, 'porque', e.target.value)} placeholder={t(lang,'met.whyPh')} />
                     </div>
                     <div className="form-group">
-                      <label>Prazo</label>
+                      <label>{t(lang,'met.deadline')}</label>
                       <input type="date" value={m.prazo} onChange={e => updateMeta(m.id, 'prazo', e.target.value)} />
                     </div>
                     <div className="form-group">
-                      <label>Status</label>
+                      <label>{t(lang,'met.status')}</label>
                       <select value={m.status} onChange={e => updateMeta(m.id, 'status', e.target.value)}>
-                        {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
+                        {STATUS_OPTIONS.map(s => <option key={s} value={s}>{t(lang,STATUS_T_KEY[s]||s)}</option>)}
                       </select>
                     </div>
                     <div className="form-group">
-                      <label>% Progresso ({pct}%)</label>
+                      <label>{t(lang,'met.progress')} ({pct}%)</label>
                       <input
                         type="range" min="0" max="100" value={pct}
                         onChange={e => updateMeta(m.id, 'progresso', parseInt(e.target.value))}
@@ -187,12 +190,12 @@ export default function Metas({ data, update }) {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Ações planejadas</label>
-                      <input type="text" value={m.acoes} onChange={e => updateMeta(m.id, 'acoes', e.target.value)} placeholder="Próximos passos..." />
+                      <label>{t(lang,'met.actions')}</label>
+                      <input type="text" value={m.acoes} onChange={e => updateMeta(m.id, 'acoes', e.target.value)} placeholder={t(lang,'met.actionsPh')} />
                     </div>
                     <div className="form-group" style={{ gridColumn: '1/-1' }}>
-                      <label>Resultado / Reflexão</label>
-                      <textarea value={m.resultado} onChange={e => updateMeta(m.id, 'resultado', e.target.value)} placeholder="O que você conquistou até agora?" style={{ minHeight: 60 }} />
+                      <label>{t(lang,'met.result')}</label>
+                      <textarea value={m.resultado} onChange={e => updateMeta(m.id, 'resultado', e.target.value)} placeholder={t(lang,'met.resultPh')} style={{ minHeight: 60 }} />
                     </div>
                   </div>
                   <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
@@ -201,7 +204,7 @@ export default function Metas({ data, update }) {
                       onClick={e => { e.stopPropagation(); deleteMeta(m.id, m.area) }}
                       style={{ fontSize: 12 }}
                     >
-                      🗑 Excluir meta
+                      {t(lang,'met.deleteGoal')}
                     </button>
                   </div>
                 </div>
@@ -213,13 +216,13 @@ export default function Metas({ data, update }) {
 
       {/* Reflexão de fim de semestre */}
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="card-title">Reflexão — Fim do Semestre</div>
+        <div className="card-title">{t(lang,'met.reflection')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
-            ['reflexao_conquistei',  'O que você conquistou?'],
-            ['reflexao_diferente',   'O que poderia ter feito diferente?'],
-            ['reflexao_desafio',     'Qual foi o maior desafio?'],
-            ['reflexao_proximo',     'O que você leva para o próximo semestre?'],
+            ['reflexao_conquistei',  t(lang,'met.r1')],
+            ['reflexao_diferente',   t(lang,'met.r2')],
+            ['reflexao_desafio',     t(lang,'met.r3')],
+            ['reflexao_proximo',     t(lang,'met.r4')],
           ].map(([key, label]) => (
             <div key={key} className="form-group">
               <label>{label}</label>

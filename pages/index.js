@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { t } from '../lib/i18n'
 import Head from 'next/head'
 import Dashboard from '../components/Dashboard'
 import Agenda from '../components/Agenda'
@@ -9,14 +10,14 @@ import Exercicios from '../components/Exercicios'
 import Anotacoes from '../components/Anotacoes'
 import { migrarDados, ensureRecorrencias, DEFAULT_CDI_ANUAL, buscarCDIAnualAtual } from '../lib/finance'
 
-const TABS = [
-  { id: 'dashboard',  label: 'Dashboard',   icon: '🏠' },
-  { id: 'agenda',     label: 'Agenda',       icon: '📅' },
-  { id: 'financeiro', label: 'Financeiro',   icon: '💰' },
-  { id: 'habitos',    label: 'Hábitos',      icon: '🔁' },
-  { id: 'metas',      label: 'Metas',        icon: '🎯' },
-  { id: 'exercicios', label: 'Exercícios',   icon: '🏋️' },
-  { id: 'anotacoes',  label: 'Anotações',    icon: '📝' },
+const TAB_IDS = [
+  { id: 'dashboard',  key: 'tab.dashboard',  icon: '🏠' },
+  { id: 'agenda',     key: 'tab.agenda',     icon: '📅' },
+  { id: 'financeiro', key: 'tab.financeiro', icon: '💰' },
+  { id: 'habitos',    key: 'tab.habitos',    icon: '🔁' },
+  { id: 'metas',      key: 'tab.metas',      icon: '🎯' },
+  { id: 'exercicios', key: 'tab.exercicios', icon: '🏋️' },
+  { id: 'anotacoes',  key: 'tab.anotacoes',  icon: '📝' },
 ]
 
 const INITIAL_DATA = {
@@ -64,6 +65,7 @@ export default function Home() {
   const [tab, setTab] = useState('dashboard')
   const [data, setData] = useState(null)
   const [darkMode, setDarkMode] = useState(false)
+  const [lang, setLang] = useState('pt')
   const [showSettings, setShowSettings] = useState(false)
   const [settingsFeedback, setSettingsFeedback] = useState('')
   const [savedIndicator, setSavedIndicator] = useState(false)
@@ -80,6 +82,8 @@ export default function Home() {
       setDarkMode(true)
       document.documentElement.setAttribute('data-theme', 'dark')
     }
+    const savedLang = localStorage.getItem('sp_lang')
+    if (savedLang === 'en') setLang('en')
     const savedCollapsed = localStorage.getItem('sp_sidebar_collapsed')
     if (savedCollapsed === 'true') setSidebarCollapsed(true)
 
@@ -176,6 +180,12 @@ export default function Home() {
     localStorage.setItem('sp_theme', next ? 'dark' : 'light')
   }
 
+  const toggleLang = () => {
+    const next = lang === 'pt' ? 'en' : 'pt'
+    setLang(next)
+    localStorage.setItem('sp_lang', next)
+  }
+
   const toggleSidebar = () => {
     const next = !sidebarCollapsed
     setSidebarCollapsed(next)
@@ -214,7 +224,7 @@ export default function Home() {
     a.download = `backup-sistema-pessoal-${new Date().toISOString().split('T')[0]}.json`
     a.click()
     URL.revokeObjectURL(url)
-    setSettingsFeedback('Backup exportado! ✅')
+    setSettingsFeedback(t(lang, 'backupOk'))
     setTimeout(() => setSettingsFeedback(''), 3000)
   }
 
@@ -228,10 +238,10 @@ export default function Home() {
         const restored = migrarDados({ ...INITIAL_DATA, ...parsed })
         restored.financeiro = ensureRecorrencias(restored.financeiro)
         save(restored)
-        setSettingsFeedback('Dados restaurados! ✅')
+        setSettingsFeedback(t(lang, 'backupRestored'))
         setTimeout(() => setSettingsFeedback(''), 4000)
       } catch {
-        setSettingsFeedback('Arquivo inválido. Verifique o JSON.')
+        setSettingsFeedback(t(lang, 'backupInvalid'))
         setTimeout(() => setSettingsFeedback(''), 3000)
       }
     }
@@ -239,11 +249,13 @@ export default function Home() {
     e.target.value = ''
   }
 
+  const TABS = TAB_IDS.map(t2 => ({ ...t2, label: t(lang, t2.key) }))
+
   const today = new Date()
+  const locale = lang === 'en' ? 'en-US' : 'pt-BR'
   const todayDia = today.getDate()
-  const todayMes = today.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')
-  const todayWeekday = today.toLocaleDateString('pt-BR', { weekday: 'long' })
-  const todayStr = today.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+  const todayMes = today.toLocaleDateString(locale, { month: 'short' }).replace('.', '')
+  const todayWeekday = today.toLocaleDateString(locale, { weekday: 'long' })
 
   if (!data) {
     return (
@@ -260,10 +272,10 @@ export default function Home() {
         }} />
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 15, fontWeight: 600, color: '#2a2520', letterSpacing: '-0.2px' }}>
-            Centro de Comando
+            {t(lang, 'appName')}
           </div>
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12, color: '#9a8f85', marginTop: 4 }}>
-            Carregando seus dados...
+            {t(lang, 'loading')}
           </div>
         </div>
         <style>{`
@@ -278,21 +290,21 @@ export default function Home() {
 
   const renderTab = () => {
     switch (tab) {
-      case 'dashboard':  return <Dashboard  data={data} update={update} setTab={setTab} />
-      case 'agenda':     return <Agenda     data={data} update={update} />
-      case 'financeiro': return <Financeiro data={data} update={update} />
-      case 'habitos':    return <Habitos    data={data} update={update} />
-      case 'metas':      return <Metas      data={data} update={update} />
-      case 'exercicios': return <Exercicios data={data} update={update} />
-      case 'anotacoes':  return <Anotacoes  data={data} update={update} />
-      default:           return <Dashboard  data={data} update={update} setTab={setTab} />
+      case 'dashboard':  return <Dashboard  data={data} update={update} setTab={setTab} lang={lang} />
+      case 'agenda':     return <Agenda     data={data} update={update} lang={lang} />
+      case 'financeiro': return <Financeiro data={data} update={update} lang={lang} />
+      case 'habitos':    return <Habitos    data={data} update={update} lang={lang} />
+      case 'metas':      return <Metas      data={data} update={update} lang={lang} />
+      case 'exercicios': return <Exercicios data={data} update={update} lang={lang} />
+      case 'anotacoes':  return <Anotacoes  data={data} update={update} lang={lang} />
+      default:           return <Dashboard  data={data} update={update} setTab={setTab} lang={lang} />
     }
   }
 
   return (
     <>
       <Head>
-        <title>Centro de Comando</title>
+        <title>{t(lang, 'appName')}</title>
         <meta name="description" content="Sistema de organização pessoal" />
       </Head>
 
@@ -301,14 +313,14 @@ export default function Home() {
         <button
           className="sidebar-collapse-btn"
           onClick={toggleSidebar}
-          title={sidebarCollapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
+          title={sidebarCollapsed ? t(lang, 'expandSidebar') : t(lang, 'collapseSidebar')}
         >
           {sidebarCollapsed ? '›' : '‹'}
         </button>
 
         <div className="sidebar-header">
-          <h1>Centro de Comando</h1>
-          <p>Organização pessoal</p>
+          <h1>{t(lang, 'appName')}</h1>
+          <p>{t(lang, 'appSub')}</p>
         </div>
 
         <nav className="sidebar-nav">
@@ -317,7 +329,7 @@ export default function Home() {
               key={t.id}
               className={`nav-item ${tab === t.id ? 'active' : ''}`}
               onClick={() => setTab(t.id)}
-              title={sidebarCollapsed ? `${t.label} (tecla ${idx + 1})` : `Tecla ${idx + 1}`}
+              title={sidebarCollapsed ? `${t.label} (${t(lang, 'keyHint')} ${idx + 1})` : `${t(lang, 'keyHint')} ${idx + 1}`}
             >
               <span className="nav-icon">{t.icon}</span>
               <span className="nav-label">{t.label}</span>
@@ -331,7 +343,7 @@ export default function Home() {
             <button
               className="sidebar-collapsed-btn"
               onClick={toggleDark}
-              title={darkMode ? 'Modo claro' : 'Modo escuro'}
+              title={darkMode ? t(lang, 'lightMode') : t(lang, 'darkMode')}
             >
               {darkMode ? '☀' : '☽'}
             </button>
@@ -348,32 +360,39 @@ export default function Home() {
         {/* Painel de configurações */}
         <div className="sidebar-settings">
           <button className="settings-btn" onClick={() => setShowSettings(s => !s)}>
-            ⚙️ Configurações
+            {t(lang, 'settings')}
           </button>
           {showSettings && (
             <div className="settings-panel">
               {settingsFeedback && <div className="settings-feedback">{settingsFeedback}</div>}
 
               <div className="settings-section">
-                <div className="settings-label">Aparência</div>
+                <div className="settings-label">{t(lang, 'appearance')}</div>
                 <button className="settings-action-btn" onClick={toggleDark}>
-                  {darkMode ? '☀️ Modo claro' : '🌙 Modo escuro'}
+                  {darkMode ? t(lang, 'lightMode') : t(lang, 'darkMode')}
                 </button>
               </div>
 
               <div className="settings-section">
-                <div className="settings-label">Dados</div>
+                <div className="settings-label">{t(lang, 'language')}</div>
+                <button className="settings-action-btn" onClick={toggleLang}>
+                  {lang === 'pt' ? '🇺🇸 English' : '🇧🇷 Português'}
+                </button>
+              </div>
+
+              <div className="settings-section">
+                <div className="settings-label">{t(lang, 'dataSection')}</div>
                 <button className="settings-action-btn" onClick={exportBackup}>
-                  📤 Exportar backup
+                  {t(lang, 'exportBackup')}
                 </button>
                 <label className="settings-action-btn" style={{ cursor: 'pointer', textAlign: 'center' }}>
-                  📥 Importar backup
+                  {t(lang, 'importBackup')}
                   <input type="file" accept=".json" onChange={importBackup} style={{ display: 'none' }} />
                 </label>
               </div>
 
               <div className="settings-section">
-                <div className="settings-label">CDI atual</div>
+                <div className="settings-label">{t(lang, 'currentCDI')}</div>
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', padding: '4px 0' }}>
                   {Number(data.configCDI?.taxaAnual || 0).toFixed(2)}% a.a.
                   {data.configCDI?.atualizadoEm && (
@@ -385,11 +404,11 @@ export default function Home() {
               </div>
 
               <div className="settings-section">
-                <div className="settings-label">Atalhos de teclado</div>
+                <div className="settings-label">{t(lang, 'keyHint')}s</div>
                 <div className="settings-shortcuts">
-                  {TABS.map((t, i) => (
-                    <div key={t.id} className="shortcut-row">
-                      <kbd>{i + 1}</kbd> {t.label}
+                  {TABS.map((tab2, i) => (
+                    <div key={tab2.id} className="shortcut-row">
+                      <kbd>{i + 1}</kbd> {tab2.label}
                     </div>
                   ))}
                 </div>
@@ -417,7 +436,7 @@ export default function Home() {
       {savedIndicator && (
         <div className="save-indicator">
           <span className="save-indicator-icon">✓</span>
-          Salvo
+          {t(lang, 'saved')}
         </div>
       )}
     </>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { t } from '../lib/i18n'
 import {
   MESES, CATEGORIAS_RECEITA, CATEGORIAS_DESPESA, FORMAS_PAGAMENTO, TIPOS_RECORRENCIA,
   fmt, moneyNumber, sugerirCategoria, hojeISO, mesDeISO, fmtDataBR,
@@ -9,7 +10,7 @@ const EMPTY_FORM = { mes:'', tipo:'Despesa', categoria:'', descricao:'', valor:'
 function sum(items, tipo) { return items.filter(l => l.tipo===tipo).reduce((s,l) => s+(parseFloat(l.valor)||0), 0) }
 function mesIndex(nome) { return MESES.findIndex(m => m.toLowerCase()===(nome||'').toLowerCase()) }
 
-export default function FinanceiroLancamentos({ data, update }) {
+export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const hoje = new Date()
   const mesAtualIdx = hoje.getMonth()
   const [mesFiltro, setMesFiltro] = useState(MESES[mesAtualIdx])
@@ -122,73 +123,73 @@ export default function FinanceiroLancamentos({ data, update }) {
   return (
     <>
       <div className="page-header page-header-actions">
-        <div><h2>Lançamentos</h2><p>Receitas e despesas, recorrência automática e forma de pagamento</p></div>
+        <div><h2>{t(lang,'lanc.title')}</h2><p>{t(lang,'lanc.sub')}</p></div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn btn-ghost" onClick={exportCSV} title="Exportar mês como CSV">📤 CSV</button>
-          <button className="btn btn-ghost" onClick={() => setShowOrcamento(s=>!s)}>🎯 Orçamento</button>
-          <button className="btn btn-primary" onClick={() => {setShowForm(!showForm);setEditId(null);setForm({...EMPTY_FORM,mes:mesFiltro})}}>{showForm?'Fechar':'+ Lançamento'}</button>
+          <button className="btn btn-ghost" onClick={exportCSV} title="Export CSV">📤 CSV</button>
+          <button className="btn btn-ghost" onClick={() => setShowOrcamento(s=>!s)}>{t(lang,'lanc.budget')}</button>
+          <button className="btn btn-primary" onClick={() => {setShowForm(!showForm);setEditId(null);setForm({...EMPTY_FORM,mes:mesFiltro})}}>{showForm?t(lang,'lanc.close'):t(lang,'lanc.new')}</button>
         </div>
       </div>
       {feedback&&<div className="toast-inline">{feedback}</div>}
       {showOrcamento&&(
         <div className="card" style={{ marginBottom:16 }}>
-          <div className="card-title">Orçamento mensal por categoria</div>
+          <div className="card-title">{t(lang,'lanc.budgetTitle')}</div>
           <div className="form-row" style={{ flexWrap:'wrap' }}>
             {CATEGORIAS_DESPESA.map(cat=>(
               <div key={cat} className="form-group" style={{ minWidth:130,maxWidth:160 }}>
                 <label>{cat}</label>
-                <input type="number" value={orcamentos[cat]||''} onChange={e=>update('orcamentoCategoria',{...orcamentos,[cat]:e.target.value})} placeholder="Sem limite" min="0" step="0.01" />
+                <input type="number" value={orcamentos[cat]||''} onChange={e=>update('orcamentoCategoria',{...orcamentos,[cat]:e.target.value})} placeholder={t(lang,'lanc.noLimit')} min="0" step="0.01" />
               </div>
             ))}
           </div>
-          <p className="muted-small" style={{ marginTop:8 }}>Defina um limite mensal por categoria.</p>
+          <p className="muted-small" style={{ marginTop:8 }}>{t(lang,'lanc.budgetSub')}</p>
         </div>
       )}
       <div className="filter-row">
         <div className="month-pills">{MESES.map(m=><button key={m} className={`pill ${mesFiltro===m?'active':''}`} onClick={()=>setMesFiltro(m)}>{m.slice(0,3)}</button>)}</div>
         <div style={{ display:'flex', gap:8 }}>
-          <input type="text" placeholder="🔍 Buscar por descrição ou categoria..." value={busca} onChange={e=>setBusca(e.target.value)} style={{ minWidth:220 }} />
-          <div className="form-group filter-card-select"><label>Cartão</label><select value={cartaoFiltro} onChange={e=>setCartaoFiltro(e.target.value)}><option>Todos</option><option>Sem cartão</option>{cartoesUsados.map(c=><option key={c}>{c}</option>)}</select></div>
+          <input type="text" placeholder={t(lang,'lanc.searchPh')} value={busca} onChange={e=>setBusca(e.target.value)} style={{ minWidth:220 }} />
+          <div className="form-group filter-card-select"><label>{t(lang,'lanc.card').replace(' *','')}</label><select value={cartaoFiltro} onChange={e=>setCartaoFiltro(e.target.value)}><option>{t(lang,'lanc.allCards')}</option><option>{t(lang,'lanc.noCard')}</option>{cartoesUsados.map(c=><option key={c}>{c}</option>)}</select></div>
         </div>
       </div>
       <div className="grid-4" style={{ marginBottom:20 }}>
-        <div className="card"><div className="card-title">Saldo atual</div><div className="stat-value" style={{ color:saldoAtual>=0?'var(--green)':'var(--red)',fontSize:20 }}>{fmt(saldoAtual)}</div><div className="muted-small">recebido − pago</div></div>
-        <div className="card"><div className="card-title">Saldo previsto</div><div className="stat-value" style={{ color:saldoPrevisto>=0?'var(--green)':'var(--red)',fontSize:20 }}>{fmt(saldoPrevisto)}</div><div className={`trend ${deltaSaldo>=0?'positive':'negative'}`}>{deltaSaldo>=0?'↑':'↓'} {fmt(Math.abs(deltaSaldo))} vs. {mesAnterior}</div></div>
-        <div className="card"><div className="card-title">A pagar</div><div className="stat-value" style={{ color:'var(--yellow)',fontSize:20 }}>{fmt(pendentes)}</div></div>
-        <div className="card"><div className="card-title">A receber</div><div className="stat-value" style={{ color:'var(--blue)',fontSize:20 }}>{fmt(aReceber)}</div></div>
+        <div className="card"><div className="card-title">{t(lang,'lanc.currentBalance')}</div><div className="stat-value" style={{ color:saldoAtual>=0?'var(--green)':'var(--red)',fontSize:20 }}>{fmt(saldoAtual)}</div><div className="muted-small">{t(lang,'lanc.recMinusPaid')}</div></div>
+        <div className="card"><div className="card-title">{t(lang,'lanc.projectedBalance')}</div><div className="stat-value" style={{ color:saldoPrevisto>=0?'var(--green)':'var(--red)',fontSize:20 }}>{fmt(saldoPrevisto)}</div><div className={`trend ${deltaSaldo>=0?'positive':'negative'}`}>{deltaSaldo>=0?'↑':'↓'} {fmt(Math.abs(deltaSaldo))} vs. {mesAnterior}</div></div>
+        <div className="card"><div className="card-title">{t(lang,'lanc.payable')}</div><div className="stat-value" style={{ color:'var(--yellow)',fontSize:20 }}>{fmt(pendentes)}</div></div>
+        <div className="card"><div className="card-title">{t(lang,'lanc.toReceive')}</div><div className="stat-value" style={{ color:'var(--blue)',fontSize:20 }}>{fmt(aReceber)}</div></div>
       </div>
       {showForm&&(
         <div className="card" style={{ marginBottom:20 }}>
-          <div className="card-title">{editId?'Editar lançamento':'Novo lançamento'}</div>
+          <div className="card-title">{editId?t(lang,'lanc.editTitle'):t(lang,'lanc.newTitle')}</div>
           <div className="form-row" style={{ marginBottom:10 }}>
-            <div className="form-group" style={{ maxWidth:140 }}><label>Mês</label><select value={form.mes} onChange={e=>handleField('mes',e.target.value)}>{MESES.map(m=><option key={m}>{m}</option>)}</select></div>
-            <div className="form-group" style={{ maxWidth:130 }}><label>Tipo</label><select value={form.tipo} onChange={e=>handleField('tipo',e.target.value)}><option>Receita</option><option>Despesa</option></select></div>
-            <div className="form-group" style={{ maxWidth:160 }}><label>Categoria</label><select value={form.categoria} onChange={e=>handleField('categoria',e.target.value)}><option value="">Selecione...</option>{cats.map(c=><option key={c}>{c}</option>)}</select></div>
-            <div className="form-group" style={{ flex:2 }}><label>Descrição *</label><input type="text" value={form.descricao} onChange={e=>handleField('descricao',e.target.value)} placeholder="Ex: Aluguel, mercado..." /></div>
-            <div className="form-group" style={{ maxWidth:120 }}><label>Valor *</label><input type="number" value={form.valor} onChange={e=>handleField('valor',e.target.value)} placeholder="0,00" min="0" step="0.01" /></div>
+            <div className="form-group" style={{ maxWidth:140 }}><label>{t(lang,'lanc.month')}</label><select value={form.mes} onChange={e=>handleField('mes',e.target.value)}>{MESES.map(m=><option key={m}>{m}</option>)}</select></div>
+            <div className="form-group" style={{ maxWidth:130 }}><label>{t(lang,'lanc.type')}</label><select value={form.tipo} onChange={e=>handleField('tipo',e.target.value)}><option>Receita</option><option>Despesa</option></select></div>
+            <div className="form-group" style={{ maxWidth:160 }}><label>{t(lang,'lanc.category')}</label><select value={form.categoria} onChange={e=>handleField('categoria',e.target.value)}><option value="">{t(lang,'lanc.selectCat')}</option>{cats.map(c=><option key={c}>{c}</option>)}</select></div>
+            <div className="form-group" style={{ flex:2 }}><label>{t(lang,'lanc.description')}</label><input type="text" value={form.descricao} onChange={e=>handleField('descricao',e.target.value)} placeholder={t(lang,'lanc.descPh')} /></div>
+            <div className="form-group" style={{ maxWidth:120 }}><label>{t(lang,'lanc.value')}</label><input type="number" value={form.valor} onChange={e=>handleField('valor',e.target.value)} placeholder="0,00" min="0" step="0.01" /></div>
           </div>
           <div className="form-row" style={{ marginBottom:10 }}>
-            <div className="form-group" style={{ maxWidth:150 }}><label>{form.tipo==='Receita'?'Data prevista':'Vencimento'}</label><input type="date" value={form.vencimento} onChange={e=>handleField('vencimento',e.target.value)} /></div>
-            {form.tipo==='Despesa'&&<div className="form-group" style={{ maxWidth:150 }}><label>Forma de pagamento</label><select value={form.formaPagamento} onChange={e=>handleField('formaPagamento',e.target.value)}>{FORMAS_PAGAMENTO.map(f=><option key={f}>{f}</option>)}</select></div>}
-            {form.tipo==='Despesa'&&form.formaPagamento==='Crédito'&&<div className="form-group" style={{ maxWidth:160 }}><label>Cartão *</label><select value={form.cartao} onChange={e=>handleField('cartao',e.target.value)}><option value="">Selecione...</option>{cartoesUsados.map(c=><option key={c}>{c}</option>)}</select></div>}
-            <div className="form-group" style={{ maxWidth:100 }}><label>Parcela</label><input type="text" value={form.parcela} onChange={e=>handleField('parcela',e.target.value)} placeholder="ex: 2/12" /></div>
-            <div className="form-group" style={{ flex:2 }}><label>Observação</label><input type="text" value={form.observacao} onChange={e=>handleField('observacao',e.target.value)} /></div>
+            <div className="form-group" style={{ maxWidth:150 }}><label>{form.tipo==='Receita'?t(lang,'lanc.expectedDate'):t(lang,'lanc.dueDate')}</label><input type="date" value={form.vencimento} onChange={e=>handleField('vencimento',e.target.value)} /></div>
+            {form.tipo==='Despesa'&&<div className="form-group" style={{ maxWidth:150 }}><label>{t(lang,'lanc.payMethod')}</label><select value={form.formaPagamento} onChange={e=>handleField('formaPagamento',e.target.value)}>{FORMAS_PAGAMENTO.map(f=><option key={f}>{f}</option>)}</select></div>}
+            {form.tipo==='Despesa'&&form.formaPagamento==='Crédito'&&<div className="form-group" style={{ maxWidth:160 }}><label>{t(lang,'lanc.card')}</label><select value={form.cartao} onChange={e=>handleField('cartao',e.target.value)}><option value="">{t(lang,'lanc.selectCard')}</option>{cartoesUsados.map(c=><option key={c}>{c}</option>)}</select></div>}
+            <div className="form-group" style={{ maxWidth:100 }}><label>{t(lang,'lanc.installment')}</label><input type="text" value={form.parcela} onChange={e=>handleField('parcela',e.target.value)} placeholder={t(lang,'lanc.installPh')} /></div>
+            <div className="form-group" style={{ flex:2 }}><label>{t(lang,'lanc.obs')}</label><input type="text" value={form.observacao} onChange={e=>handleField('observacao',e.target.value)} /></div>
           </div>
           <div className="form-row">
             <div className="form-group" style={{ maxWidth:130 }}>
-              <label className="checkbox-label"><input type="checkbox" checked={form.tipo==='Despesa'?form.status==='Pago':form.status==='Recebida'} onChange={e=>handleField('status',form.tipo==='Despesa'?(e.target.checked?'Pago':'Pendente'):(e.target.checked?'Recebida':'Prevista'))} />{form.tipo==='Despesa'?'Pago':'Recebida'}</label>
-              <label className="checkbox-label"><input type="checkbox" checked={form.recorrente} onChange={e=>handleField('recorrente',e.target.checked)} /> Recorrente</label>
+              <label className="checkbox-label"><input type="checkbox" checked={form.tipo==='Despesa'?form.status==='Pago':form.status==='Recebida'} onChange={e=>handleField('status',form.tipo==='Despesa'?(e.target.checked?'Pago':'Pendente'):(e.target.checked?'Recebida':'Prevista'))} />{form.tipo==='Despesa'?t(lang,'lanc.paid'):t(lang,'lanc.received')}</label>
+              <label className="checkbox-label"><input type="checkbox" checked={form.recorrente} onChange={e=>handleField('recorrente',e.target.checked)} /> {t(lang,'lanc.recurring')}</label>
             </div>
-            {form.recorrente&&<><div className="form-group" style={{ maxWidth:150 }}><label>Frequência</label><select value={form.recorrenciaTipo} onChange={e=>handleField('recorrenciaTipo',e.target.value)}>{TIPOS_RECORRENCIA.map(t=><option key={t}>{t}</option>)}</select></div>{form.recorrenciaTipo==='Personalizada'&&<div className="form-group" style={{ maxWidth:130 }}><label>A cada (dias)</label><input type="number" min="1" value={form.recorrenciaIntervaloDias} onChange={e=>handleField('recorrenciaIntervaloDias',e.target.value)} placeholder="ex: 10" /></div>}</>
+            {form.recorrente&&<><div className="form-group" style={{ maxWidth:150 }}><label>{t(lang,'lanc.frequency')}</label><select value={form.recorrenciaTipo} onChange={e=>handleField('recorrenciaTipo',e.target.value)}>{TIPOS_RECORRENCIA.map(tp=><option key={tp}>{tp}</option>)}</select></div>{form.recorrenciaTipo==='Personalizada'&&<div className="form-group" style={{ maxWidth:130 }}><label>{t(lang,'lanc.everyDays')}</label><input type="number" min="1" value={form.recorrenciaIntervaloDias} onChange={e=>handleField('recorrenciaIntervaloDias',e.target.value)} placeholder={t(lang,'lanc.everyDaysPh')} /></div>}</>
             }
-            <div style={{ display:'flex',alignItems:'flex-end',gap:8,marginLeft:'auto' }}><button className="btn btn-primary" onClick={handleSave}>Salvar</button><button className="btn btn-ghost" onClick={resetForm}>Cancelar</button></div>
+            <div style={{ display:'flex',alignItems:'flex-end',gap:8,marginLeft:'auto' }}><button className="btn btn-primary" onClick={handleSave}>{t(lang,'lanc.save')}</button><button className="btn btn-ghost" onClick={resetForm}>{t(lang,'lanc.cancel')}</button></div>
           </div>
         </div>
       )}
       <div className="grid-2" style={{ marginBottom:20 }}>
         <div className="card">
-          <div className="card-title">Gastos por categoria — {mesFiltro}</div>
-          {despesasPorCategoria.length===0?<p className="muted-small">Nenhuma despesa no período.</p>:despesasPorCategoria.map(item=>{
+          <div className="card-title">{t(lang,'lanc.expByCat',mesFiltro)}</div>
+          {despesasPorCategoria.length===0?<p className="muted-small">{t(lang,'lanc.noneInPeriod')}</p>:despesasPorCategoria.map(item=>{
             const orcLimite=moneyNumber(orcamentos[item.categoria]);const pctOrc=orcLimite>0?Math.min(100,(item.total/orcLimite)*100):null;const fc=pctOrc===null?'':pctOrc>=90?'danger':pctOrc>=70?'warn':'ok'
             return(<div key={item.categoria} className="bar-row">
               <div className="bar-row-label"><span>{item.categoria}</span><div style={{ display:'flex',gap:8,alignItems:'center' }}>{pctOrc!==null&&<span className={`budget-pct-badge ${fc}`}>{Math.round(pctOrc)}%</span>}<strong>{fmt(item.total)}</strong>{orcLimite>0&&<span className="muted-small">/ {fmt(orcLimite)}</span>}</div></div>
@@ -198,23 +199,23 @@ export default function FinanceiroLancamentos({ data, update }) {
           })}
         </div>
         <div className="card">
-          <div className="card-title">Despesas por cartão — {mesFiltro}</div>
-          {resumoCartoes.length===0?<p className="muted-small">Nenhuma despesa de crédito.</p>:resumoCartoes.map(item=>(<div key={item.cartao} className="bar-row"><div className="bar-row-label"><span>{item.cartao}</span><strong>{fmt(item.total)}</strong></div><div className="chart-track"><div className="chart-fill blue" style={{ width:`${(item.total/Math.max(1,resumoCartoes[0].total))*100}%` }} /></div></div>))}
+          <div className="card-title">{t(lang,'lanc.byCard',mesFiltro)}</div>
+          {resumoCartoes.length===0?<p className="muted-small">{t(lang,'lanc.noCredit')}</p>:resumoCartoes.map(item=>(<div key={item.cartao} className="bar-row"><div className="bar-row-label"><span>{item.cartao}</span><strong>{fmt(item.total)}</strong></div><div className="chart-track"><div className="chart-fill blue" style={{ width:`${(item.total/Math.max(1,resumoCartoes[0].total))*100}%` }} /></div></div>))}
         </div>
       </div>
       <div className="card" style={{ marginBottom:20 }}>
-        <div className="card-title">Evolução financeira mensal</div>
+        <div className="card-title">{t(lang,'lanc.monthEvol')}</div>
         <div className="monthly-chart">{evolucaoMensal.map(item=>(<div key={item.mes} className={`monthly-group ${item.mes===mesFiltro?'active':''}`} onClick={()=>setMesFiltro(item.mes)}><div className="monthly-bars"><span className="income" style={{ height:`${Math.max(4,(item.receitas/maxEvolucao)*100)}%` }} title={`Receitas: ${fmt(item.receitas)}`} /><span className="expense" style={{ height:`${Math.max(4,(item.despesas/maxEvolucao)*100)}%` }} title={`Despesas: ${fmt(item.despesas)}`} /></div><div className="monthly-label">{item.mes.slice(0,3)}</div></div>))}</div>
-        <div className="chart-legend"><span><i className="legend-income" /> Receitas</span><span><i className="legend-expense" /> Despesas</span></div>
+        <div className="chart-legend"><span><i className="legend-income" /> {t(lang,'dash.income')}</span><span><i className="legend-expense" /> {t(lang,'dash.expenses')}</span></div>
       </div>
       <div className="card">
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
           <div className="card-title" style={{ margin:0 }}>{mesFiltro} — {lancMes.length} lançamento{lancMes.length!==1?'s':''}{busca&&<span className="muted-small" style={{ marginLeft:8 }}>(busca: "{busca}")</span>}</div>
-          {busca&&<button className="btn btn-ghost btn-sm" onClick={()=>setBusca('')}>Limpar ✕</button>}
+          {busca&&<button className="btn btn-ghost btn-sm" onClick={()=>setBusca('')}>{t(lang,'lanc.clearSearch')}</button>}
         </div>
-        {lancMes.length===0?<p className="muted-small">Nenhum lançamento com os filtros atuais.</p>:(
+        {lancMes.length===0?<p className="muted-small">{t(lang,'lanc.noneFiltered')}</p>:(
           <div className="table-wrap"><table>
-            <thead><tr><th>Tipo</th><th>Categoria</th><th>Pagamento</th><th>Descrição</th><th>Valor</th><th>Data</th><th>Parcela</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>{t(lang,'lanc.typeCol')}</th><th>{t(lang,'lanc.catCol')}</th><th>{t(lang,'lanc.payCol')}</th><th>{t(lang,'lanc.descCol')}</th><th>{t(lang,'lanc.valueCol')}</th><th>{t(lang,'lanc.dateCol')}</th><th>{t(lang,'lanc.instCol')}</th><th>{t(lang,'lanc.statusCol')}</th><th></th></tr></thead>
             <tbody>{lancMes.map(l=>(
               <tr key={l.id}>
                 <td><span className={`badge ${l.tipo==='Receita'?'badge-green':'badge-red'}`}>{l.tipo}</span></td>
@@ -226,10 +227,10 @@ export default function FinanceiroLancamentos({ data, update }) {
                 <td className="muted-cell">{l.parcela}</td>
                 <td><label className="checkbox-label" style={{ marginBottom:0 }}><input type="checkbox" checked={l.tipo==='Despesa'?l.status==='Pago':l.status==='Recebida'} onChange={()=>toggleStatus(l)} style={{ accentColor:'var(--green)',cursor:'pointer' }} /><span className={`badge ${l.status==='Pago'||l.status==='Recebida'?'badge-green':l.tipo==='Receita'?'badge-blue':'badge-yellow'}`}>{l.status}</span></label></td>
                 <td className="table-actions">
-                  <button className="btn btn-ghost btn-sm" onClick={()=>handleEdit(l)}>Editar</button>
-                  <button className="btn btn-ghost btn-sm" onClick={()=>handleDuplicate(l)}>Duplicar</button>
-                  {l.recorrenciaGrupoId&&l.recorrenciaAtiva!==false&&<button className="btn btn-ghost btn-sm" onClick={()=>pararRecorrencia(l)}>Parar ↻</button>}
-                  <button className="btn btn-danger" onClick={()=>handleDelete(l)}>Excluir</button>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>handleEdit(l)}>{t(lang,'lanc.edit')}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>handleDuplicate(l)}>{t(lang,'lanc.duplicate')}</button>
+                  {l.recorrenciaGrupoId&&l.recorrenciaAtiva!==false&&<button className="btn btn-ghost btn-sm" onClick={()=>pararRecorrencia(l)}>{t(lang,'lanc.stopRec')}</button>}
+                  <button className="btn btn-danger" onClick={()=>handleDelete(l)}>{t(lang,'lanc.delete')}</button>
                 </td>
               </tr>
             ))}</tbody>

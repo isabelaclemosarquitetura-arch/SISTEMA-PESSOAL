@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { t } from '../lib/i18n'
 import {
   TIPOS_INVESTIMENTO, INSTITUICOES_INVESTIMENTO, RENTABILIDADE_TIPOS, LIQUIDEZ_OPCOES,
   fmt, moneyNumber, calcularValorAtualInvestimento, buscarCDIAnualAtual, hojeISO, fmtDataBR,
@@ -20,7 +21,7 @@ const EMPTY_FORM = {
   observacao: '',
 }
 
-export default function FinanceiroInvestimentos({ data, update }) {
+export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [editId, setEditId] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -144,11 +145,11 @@ export default function FinanceiroInvestimentos({ data, update }) {
     <>
       <div className="page-header page-header-actions">
         <div>
-          <h2>Investimentos</h2>
-          <p>Carteira pessoal — valor investido, rendimento automático e aportes planejados</p>
+          <h2>{t(lang,'inv.title')}</h2>
+          <p>{t(lang,'inv.sub')}</p>
         </div>
         <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); setEditId(null); setForm(EMPTY_FORM) }}>
-          {showForm ? 'Fechar' : '+ Investimento'}
+          {showForm ? t(lang,'inv.close') : t(lang,'inv.new')}
         </button>
       </div>
 
@@ -172,28 +173,27 @@ export default function FinanceiroInvestimentos({ data, update }) {
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Investido</div>
+          <div className="card-title">{t(lang,'inv.totalInvested')}</div>
           <div className="stat-value" style={{ fontSize: 19 }}>{fmt(carteira.totalInvestido)}</div>
         </div>
         <div className="card">
-          <div className="card-title">Valor atual</div>
+          <div className="card-title">{t(lang,'inv.currentValue')}</div>
           <div className="stat-value" style={{ color: 'var(--blue)', fontSize: 19 }}>{fmt(carteira.valorAtual)}</div>
         </div>
         <div className="card">
-          <div className="card-title">Rendimento</div>
+          <div className="card-title">{t(lang,'inv.yield')}</div>
           <div className="stat-value" style={{ color: carteira.rendimento >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 19 }}>{fmt(carteira.rendimento)}</div>
           <div className={`trend ${carteira.rendimento >= 0 ? 'positive' : 'negative'}`}>{carteira.rendimentoPct.toFixed(2)}%</div>
         </div>
         <div className="card">
-          <div className="card-title">Aporte mensal planejado</div>
+          <div className="card-title">{t(lang,'inv.monthlyContrib')}</div>
           <div className="stat-value" style={{ color: 'var(--accent)', fontSize: 19 }}>{fmt(carteira.aporteMensalPlanejado)}</div>
-          <div className="muted-small">planejamento futuro — não soma ao valor investido</div>
         </div>
       </div>
 
       {showForm && (
         <div className="card" style={{ marginBottom: 20 }}>
-          <div className="card-title">{editId ? 'Editar investimento' : 'Novo investimento'}</div>
+          <div className="card-title">{editId ? t(lang,'inv.edit') + ' ' + t(lang,'inv.title').toLowerCase() : t(lang,'inv.new').replace('+ ','')}</div>
           <div className="form-row" style={{ marginBottom: 10 }}>
             <div className="form-group">
               <label>Nome *</label>
@@ -276,21 +276,18 @@ export default function FinanceiroInvestimentos({ data, update }) {
               <input type="text" value={form.observacao} onChange={e => handleField('observacao', e.target.value)} />
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-              <button className="btn btn-primary" onClick={handleSave}>Salvar</button>
-              <button className="btn btn-ghost" onClick={resetForm}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleSave}>{t(lang,'inv.save')}</button>
+              <button className="btn btn-ghost" onClick={resetForm}>{t(lang,'inv.cancel')}</button>
             </div>
           </div>
-          <p className="muted-small" style={{ marginTop: 10 }}>
-            Aporte mensal planejado é só um plano de quanto você pretende investir por mês — não é somado ao valor já investido.
-          </p>
         </div>
       )}
 
       <div className="grid-2 investment-content" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Distribuição da carteira</div>
+          <div className="card-title">{t(lang,'inv.portfolioTitle')}</div>
           {carteira.porTipo.length === 0 ? (
-            <p className="muted-small">Nenhum investimento cadastrado ainda.</p>
+            <p className="muted-small">{t(lang,'inv.none')}</p>
           ) : carteira.porTipo.map(item => (
             <div key={item.tipo} className="bar-row">
               <div className="bar-row-label"><span>{item.tipo}</span><strong>{fmt(item.total)}</strong></div>
@@ -300,22 +297,22 @@ export default function FinanceiroInvestimentos({ data, update }) {
         </div>
 
         <div className="card table-wrap">
-          <div className="card-title">Carteira detalhada</div>
+          <div className="card-title">{t(lang,'inv.name')} — {t(lang,'inv.portfolioTitle')}</div>
           <table>
             <thead>
               <tr>
-                <th>Ativo</th>
-                <th>Rentabilidade</th>
-                <th>Data</th>
-                <th>Dias</th>
-                <th>Atual</th>
-                <th>Resultado</th>
+                <th>{t(lang,'inv.name')}</th>
+                <th>{t(lang,'inv.profitability')}</th>
+                <th>{t(lang,'inv.date')}</th>
+                <th>{lang==='en'?'Days':'Dias'}</th>
+                <th>{t(lang,'inv.currentVal')}</th>
+                <th>{t(lang,'inv.yield')}</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {linhas.length === 0 ? (
-                <tr><td colSpan="6" className="muted-cell">Cadastre seus investimentos para acompanhar a carteira.</td></tr>
+                <tr><td colSpan="6" className="muted-cell">{t(lang,'inv.none')}</td></tr>
               ) : linhas.map(({ item, calc }) => (
                 <tr key={item.id}>
                   <td>
@@ -330,8 +327,8 @@ export default function FinanceiroInvestimentos({ data, update }) {
                   <td>{fmt(calc.valorAtual)}</td>
                   <td style={{ color: calc.rendimentoAcumulado >= 0 ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>{fmt(calc.rendimentoAcumulado)}</td>
                   <td className="table-actions">
-                    <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(item)}>Editar</button>
-                    <button className="btn btn-danger" onClick={() => handleDelete(item.id)}>Excluir</button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(item)}>{t(lang,'inv.edit')}</button>
+                    <button className="btn btn-danger" onClick={() => handleDelete(item.id)}>{t(lang,'inv.delete')}</button>
                   </td>
                 </tr>
               ))}

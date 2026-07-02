@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
+import { t, DIAS_LABEL_EN, DIAS_CAL_EN, MESES_EN_FULL } from '../lib/i18n'
 
-const DIAS_LABEL     = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
-const DIAS_LABEL_CAL = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
+const DIAS_LABEL_PT  = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+const DIAS_CAL_PT    = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 const MESES_PT       = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 
 function getMondayOf(date) {
@@ -13,7 +14,7 @@ function getMondayOf(date) {
 }
 function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d }
 function fmtKey(date)   { return date.toISOString().split('T')[0] }
-function fmtLabel(date) { return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) }
+function fmtLabel(date, locale = 'pt-BR') { return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }) }
 
 // Compatibilidade: se tasks/checks não existir ou for tamanho menor, expande
 function normDay(day) {
@@ -28,7 +29,12 @@ function normDay(day) {
 
 const EMPTY_DAY = () => normDay(null)
 
-export default function Agenda({ data, update }) {
+export default function Agenda({ data, update, lang = 'pt' }) {
+  const DIAS_LABEL     = lang === 'en' ? DIAS_LABEL_EN  : DIAS_LABEL_PT
+  const DIAS_LABEL_CAL = lang === 'en' ? DIAS_CAL_EN    : DIAS_CAL_PT
+  const MESES_DISP     = lang === 'en' ? MESES_EN_FULL  : MESES_PT
+  const locale         = lang === 'en' ? 'en-US'        : 'pt-BR'
+
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const [view, setView]             = useState('semana') // 'semana' | 'mes'
   const [weekStart, setWeekStart]   = useState(getMondayOf(today))
@@ -37,7 +43,7 @@ export default function Agenda({ data, update }) {
   const [calSelected, setCalSelected] = useState(null) // key do dia selecionado no calendário
   const [showBacklog, setShowBacklog] = useState(true)
 
-  const days = DIAS_LABEL.map((label, i) => {
+  const days = DIAS_LABEL.map((label, i) => {  // depends on lang
     const date = addDays(weekStart, i)
     return { label, date, key: fmtKey(date) }
   })
@@ -85,7 +91,7 @@ export default function Agenda({ data, update }) {
   const prevWeek  = () => setWeekStart(addDays(weekStart, -7))
   const nextWeek  = () => setWeekStart(addDays(weekStart,  7))
   const goToday   = () => setWeekStart(getMondayOf(today))
-  const weekLabel = `${fmtLabel(weekStart)} – ${fmtLabel(addDays(weekStart, 6))}`
+  const weekLabel = `${fmtLabel(weekStart, locale)} – ${fmtLabel(addDays(weekStart, 6), locale)}`
 
   // Backlog: tarefas não concluídas de dias anteriores a hoje
   const backlog = useMemo(() => {
@@ -99,7 +105,7 @@ export default function Agenda({ data, update }) {
           const d = new Date(key + 'T00:00:00')
           res.push({
             key, taskIdx: idx, label: t,
-            dataLabel: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+            dataLabel: d.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' }),
             diasAtras: Math.round((today - d) / 86400000),
           })
         }
@@ -135,12 +141,12 @@ export default function Agenda({ data, update }) {
     <>
       <div className="page-header page-header-actions">
         <div>
-          <h2>Agenda {view === 'mes' ? 'Mensal' : 'Semanal'}</h2>
-          <p>Adicione quantas tarefas precisar · marque as concluídas</p>
+          <h2>{view === 'mes' ? t(lang, 'agenda.titleMonth') : t(lang, 'agenda.titleWeek')}</h2>
+          <p>{t(lang, 'agenda.sub')}</p>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button className={`btn btn-sm ${view === 'semana' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('semana')}>Semana</button>
-          <button className={`btn btn-sm ${view === 'mes' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('mes')}>Mês</button>
+          <button className={`btn btn-sm ${view === 'semana' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('semana')}>{t(lang, 'agenda.week')}</button>
+          <button className={`btn btn-sm ${view === 'mes' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setView('mes')}>{t(lang, 'agenda.month')}</button>
         </div>
       </div>
 
@@ -149,11 +155,11 @@ export default function Agenda({ data, update }) {
         <div className="card" style={{ marginBottom: 16, borderLeft: '4px solid var(--red)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showBacklog ? 12 : 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="card-title" style={{ margin: 0 }}>⚠ Tarefas em atraso</div>
+              <div className="card-title" style={{ margin: 0 }}>{t(lang, 'agenda.overdue')}</div>
               <span className="badge badge-red">{backlog.length}</span>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowBacklog(s => !s)}>
-              {showBacklog ? 'Ocultar ▲' : 'Ver ▼'}
+              {showBacklog ? t(lang, 'agenda.hide') : t(lang, 'agenda.show')}
             </button>
           </div>
           {showBacklog && (
@@ -162,8 +168,8 @@ export default function Agenda({ data, update }) {
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, minWidth: 90 }}>{item.dataLabel}</span>
                   <span style={{ fontSize: 13, flex: 1 }}>{item.label}</span>
-                  <span className="muted-small">{item.diasAtras}d atrás</span>
-                  <button className="btn btn-ghost btn-sm" onClick={() => concludeBacklog(item.key, item.taskIdx)}>✓ Concluir</button>
+                  <span className="muted-small">{item.diasAtras}{t(lang, 'agenda.dAgo')}</span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => concludeBacklog(item.key, item.taskIdx)}>{t(lang, 'agenda.complete')}</button>
                 </div>
               ))}
             </div>
@@ -176,11 +182,11 @@ export default function Agenda({ data, update }) {
         <>
           <div className="week-nav">
             <button onClick={prevMonth}>‹</button>
-            <span>{MESES_PT[calMonth]} {calYear}</span>
+            <span>{MESES_DISP[calMonth]} {calYear}</span>
             <button onClick={nextMonth}>›</button>
             <button onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()) }}
               style={{ marginLeft: 8, fontSize: 12, color: 'var(--accent)', borderColor: 'var(--accent)' }}>
-              Hoje
+              {t(lang, 'agenda.today')}
             </button>
           </div>
 
@@ -222,7 +228,7 @@ export default function Agenda({ data, update }) {
           {calSelected && selectedDay && (
             <div className="card" style={{ marginTop: 16 }}>
               <div className="card-title">
-                {new Date(calSelected + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                {new Date(calSelected + 'T00:00:00').toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: 'long' })}
               </div>
               {selectedDay.tasks.map((task, i) => (
                 <div key={i} className="task-input">
@@ -230,7 +236,7 @@ export default function Agenda({ data, update }) {
                     onChange={() => toggleCheck(calSelected, i)}
                     style={{ width: 14, height: 14, accentColor: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }} />
                   <input type="text" value={task}
-                    placeholder={`Tarefa ${i + 1}`}
+                    placeholder={`${t(lang, 'agenda.task')} ${i + 1}`}
                     onChange={e => updateTask(calSelected, i, e.target.value)}
                     style={{ textDecoration: selectedDay.checks[i] ? 'line-through' : 'none', color: selectedDay.checks[i] ? 'var(--text-muted)' : 'var(--text)' }} />
                   {(i >= 5 || !task.trim()) && (
@@ -238,8 +244,8 @@ export default function Agenda({ data, update }) {
                   )}
                 </div>
               ))}
-              <button className="task-add-btn" onClick={() => addTask(calSelected)}>+ tarefa</button>
-              <textarea value={selectedDay.notas} placeholder="Notas do dia..."
+              <button className="task-add-btn" onClick={() => addTask(calSelected)}>{t(lang, 'agenda.addTask')}</button>
+              <textarea value={selectedDay.notas} placeholder={t(lang, 'agenda.notesPlaceholder')}
                 onChange={e => updateNotas(calSelected, e.target.value)}
                 style={{ marginTop: 8, fontSize: 12, minHeight: 50, color: 'var(--text-muted)' }} />
             </div>
@@ -254,7 +260,7 @@ export default function Agenda({ data, update }) {
         <span>{weekLabel}</span>
         <button onClick={nextWeek}>›</button>
         <button onClick={goToday} style={{ marginLeft: 8, fontSize: 12, color: 'var(--accent)', borderColor: 'var(--accent)' }}>
-          Hoje
+          {t(lang, 'agenda.today')}
         </button>
       </div>
 
@@ -287,7 +293,7 @@ export default function Agenda({ data, update }) {
                   <input
                     type="text"
                     value={task}
-                    placeholder={i < 5 ? `Tarefa ${i + 1}` : 'Nova tarefa...'}
+                    placeholder={`${t(lang, 'agenda.task')} ${i + 1}`}
                     onChange={e => updateTask(key, i, e.target.value)}
                     style={{
                       textDecoration: day.checks[i] ? 'line-through' : 'none',
@@ -309,12 +315,12 @@ export default function Agenda({ data, update }) {
 
               {/* Botão adicionar tarefa */}
               <button className="task-add-btn" onClick={() => addTask(key)}>
-                + tarefa
+                {t(lang, 'agenda.addTask')}
               </button>
 
               <textarea
                 value={day.notas}
-                placeholder="Notas do dia..."
+                placeholder={t(lang, 'agenda.notesPlaceholder')}
                 onChange={e => updateNotas(key, e.target.value)}
                 style={{ marginTop: 8, fontSize: 12, minHeight: 50, color: 'var(--text-muted)' }}
               />

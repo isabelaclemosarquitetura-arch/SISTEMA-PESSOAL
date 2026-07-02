@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { t } from '../lib/i18n'
 import { MESES, fmt, moneyNumber } from '../lib/finance'
 
-export default function FinanceiroRelatorio({ data }) {
+export default function FinanceiroRelatorio({ data, lang = 'pt' }) {
   const [mesIdx, setMesIdx] = useState(new Date().getMonth())
   const mes       = MESES[mesIdx]
   const mesAnt    = MESES[(mesIdx + 11) % 12]
@@ -58,8 +59,8 @@ export default function FinanceiroRelatorio({ data }) {
     <>
       <div className="page-header page-header-actions">
         <div>
-          <h2>Relatório Mensal</h2>
-          <p>Resumo consolidado do fechamento do mês</p>
+          <h2>{t(lang,'rel.title')}</h2>
+          <p>{lang==='en'?'Consolidated monthly summary':'Resumo consolidado do fechamento do mês'}</p>
         </div>
         <div className="month-pills" style={{ flex: 'none' }}>
           {MESES.map((m, i) => (
@@ -72,49 +73,47 @@ export default function FinanceiroRelatorio({ data }) {
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Receitas</div>
+          <div className="card-title">{t(lang,'rel.income')}</div>
           <div className="stat-value" style={{ color: 'var(--green)', fontSize: 20 }}>{fmt(receitas)}</div>
           {receitasAnt > 0 && (
             <div className={`trend ${receitas >= receitasAnt ? 'positive' : 'negative'}`}>
-              {receitas >= receitasAnt ? '↑' : '↓'} {fmt(Math.abs(receitas - receitasAnt))} vs. {mesAnt}
+              {receitas >= receitasAnt ? '↑' : '↓'} {fmt(Math.abs(receitas - receitasAnt))} {t(lang,'rel.vsLastMonth')}
             </div>
           )}
         </div>
         <div className="card">
-          <div className="card-title">Despesas</div>
+          <div className="card-title">{t(lang,'rel.expenses')}</div>
           <div className="stat-value" style={{ color: 'var(--red)', fontSize: 20 }}>{fmt(despesas)}</div>
           {despesasAnt > 0 && (
             <div className={`trend ${despesas <= despesasAnt ? 'positive' : 'negative'}`}>
-              {despesas <= despesasAnt ? '↓' : '↑'} {fmt(Math.abs(despesas - despesasAnt))} vs. {mesAnt}
+              {despesas <= despesasAnt ? '↓' : '↑'} {fmt(Math.abs(despesas - despesasAnt))} {t(lang,'rel.vsLastMonth')}
             </div>
           )}
         </div>
         <div className="card">
-          <div className="card-title">Saldo previsto</div>
+          <div className="card-title">{t(lang,'rel.balance')}</div>
           <div className="stat-value" style={{ color: saldo >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 20 }}>{fmt(saldo)}</div>
-          <div className="muted-small">receitas − despesas</div>
         </div>
         <div className="card">
-          <div className="card-title">Taxa de poupança</div>
+          <div className="card-title">{t(lang,'rel.savingsRate')}</div>
           <div className="stat-value" style={{ color: taxaEconomia >= 20 ? 'var(--green)' : taxaEconomia >= 10 ? 'var(--yellow)' : 'var(--red)', fontSize: 20 }}>
             {taxaEconomia.toFixed(1)}%
           </div>
-          <div className="muted-small">do que entrou foi poupado</div>
         </div>
       </div>
 
       <div className="grid-4" style={{ marginBottom: 20 }}>
-        <div className="card"><div className="card-title">Recebido</div><div className="stat-value" style={{ fontSize: 18, color: 'var(--green)' }}>{fmt(recebido)}</div></div>
-        <div className="card"><div className="card-title">Pago</div><div className="stat-value" style={{ fontSize: 18 }}>{fmt(pago)}</div></div>
-        <div className="card"><div className="card-title">Ainda a pagar</div><div className="stat-value" style={{ fontSize: 18, color: pendente > 0 ? 'var(--yellow)' : 'var(--green)' }}>{fmt(pendente)}</div></div>
-        <div className="card"><div className="card-title">Ainda a receber</div><div className="stat-value" style={{ fontSize: 18, color: aReceber > 0 ? 'var(--blue)' : 'var(--text-muted)' }}>{fmt(aReceber)}</div></div>
+        <div className="card"><div className="card-title">{t(lang,'rel.received')}</div><div className="stat-value" style={{ fontSize: 18, color: 'var(--green)' }}>{fmt(recebido)}</div></div>
+        <div className="card"><div className="card-title">{t(lang,'rel.paid')}</div><div className="stat-value" style={{ fontSize: 18 }}>{fmt(pago)}</div></div>
+        <div className="card"><div className="card-title">{t(lang,'rel.pending')}</div><div className="stat-value" style={{ fontSize: 18, color: pendente > 0 ? 'var(--yellow)' : 'var(--green)' }}>{fmt(pendente)}</div></div>
+        <div className="card"><div className="card-title">{t(lang,'rel.toReceive')}</div><div className="stat-value" style={{ fontSize: 18, color: aReceber > 0 ? 'var(--blue)' : 'var(--text-muted)' }}>{fmt(aReceber)}</div></div>
       </div>
 
       <div className="grid-2" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Despesas por categoria</div>
+          <div className="card-title">{t(lang,'rel.expByCat')}</div>
           {categorias.length === 0
-            ? <p className="muted-small">Sem despesas em {mes}.</p>
+            ? <p className="muted-small">{t(lang,'rel.noData')}</p>
             : categorias.map(({ cat, total, orcamento, pct }) => {
                 const fc = pct === null ? '' : pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : 'ok'
                 return (
@@ -141,9 +140,9 @@ export default function FinanceiroRelatorio({ data }) {
         </div>
 
         <div className="card">
-          <div className="card-title">Receitas por categoria</div>
+          <div className="card-title">{t(lang,'rel.incByCat')}</div>
           {receitasPorCat.length === 0
-            ? <p className="muted-small">Sem receitas em {mes}.</p>
+            ? <p className="muted-small">{t(lang,'rel.noData')}</p>
             : receitasPorCat.map(({ cat, total }) => (
                 <div key={cat} className="bar-row">
                   <div className="bar-row-label"><span>{cat}</span><strong>{fmt(total)}</strong></div>
@@ -151,9 +150,9 @@ export default function FinanceiroRelatorio({ data }) {
                 </div>
               ))
           }
-          <div className="card-title" style={{ marginTop: 20 }}>Top 5 gastos do mês</div>
+          <div className="card-title" style={{ marginTop: 20 }}>{t(lang,'rel.top5Exp')}</div>
           {top5.length === 0
-            ? <p className="muted-small">Sem despesas em {mes}.</p>
+            ? <p className="muted-small">{t(lang,'rel.noData')}</p>
             : top5.map(l => (
                 <div key={l.id} className="list-row" style={{ justifyContent: 'flex-start', gap: 12 }}>
                   <span className="muted-small" style={{ minWidth: 100 }}>{l.categoria || '—'}</span>

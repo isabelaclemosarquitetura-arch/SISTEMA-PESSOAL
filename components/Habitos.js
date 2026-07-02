@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t, MESES_EN } from '../lib/i18n'
 
 const HABITOS_DEFAULT = [
   'Beber 2L de água',
@@ -23,7 +24,8 @@ function todayKey(date) {
   return fmtKey(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
-export default function Habitos({ data, update }) {
+export default function Habitos({ data, update, lang = 'pt' }) {
+  const MESES_DISP = lang === 'en' ? MESES_EN : MESES
   const hoje = new Date()
   const [viewYear, setViewYear] = useState(hoje.getFullYear())
   const [viewMonth, setViewMonth] = useState(hoje.getMonth())
@@ -129,34 +131,34 @@ export default function Habitos({ data, update }) {
   return (
     <>
       <div className="page-header">
-        <h2>Rastreador de Hábitos</h2>
-        <p>Marque, edite e acompanhe sua consistência diária</p>
+        <h2>{t(lang,'hab.title')}</h2>
+        <p>{t(lang,'hab.sub')}</p>
       </div>
 
       <div className="grid-3" style={{ marginBottom: 20 }}>
         <div className="card">
-          <div className="card-title">Conclusão hoje</div>
+          <div className="card-title">{t(lang,'hab.completionToday')}</div>
           <div className="stat-value" style={{ color: pctHoje === 100 ? 'var(--green)' : 'var(--accent)' }}>{pctHoje}%</div>
-          <div className="stat-label">{feitosHoje}/{habitos.length} hábitos concluídos</div>
+          <div className="stat-label">{t(lang,'hab.completedOf',feitosHoje,habitos.length)}</div>
           <div className="progress-bar" style={{ marginTop: 10 }}>
             <div className="progress-fill" style={{ width: `${pctHoje}%` }} />
           </div>
         </div>
         <div className="card">
-          <div className="card-title">Melhor sequência atual</div>
-          <div className="stat-value" style={{ color: 'var(--blue)' }}>{Math.max(0, ...habitos.map(streak))}d 🔥</div>
-          <div className="stat-label">dias seguidos</div>
+          <div className="card-title">{t(lang,'hab.bestStreak')}</div>
+          <div className="stat-value" style={{ color: 'var(--blue)' }}>{Math.max(0, ...habitos.map(streak))}{t(lang,'hab.daysInRow')}</div>
+          <div className="stat-label">{t(lang,'hab.daysLabel')}</div>
         </div>
         <div className="card">
-          <div className="card-title">Hábitos ativos</div>
+          <div className="card-title">{t(lang,'hab.activeHabits')}</div>
           <div className="stat-value">{habitos.length}</div>
-          <div className="stat-label">em acompanhamento</div>
+          <div className="stat-label">{t(lang,'hab.tracking')}</div>
         </div>
       </div>
 
       {/* ── RANKING DE HÁBITOS ── */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-title">Ranking de consistência — {MESES[viewMonth]}</div>
+        <div className="card-title">{t(lang,'hab.ranking',MESES_DISP[viewMonth])}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[...habitos]
             .map(h => ({ h, pct: consistencia(h), streak: streak(h) }))
@@ -185,7 +187,7 @@ export default function Habitos({ data, update }) {
       </div>
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-title">Hoje - {hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
+        <div className="card-title">{t(lang,'hab.todayLabel')} - {hoje.toLocaleDateString(lang==='en'?'en-US':'pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
         <div className="habit-progress-dots">
           {habitos.map(h => <span key={h} className={habitosHoje[h] ? 'done' : ''} />)}
         </div>
@@ -200,8 +202,8 @@ export default function Habitos({ data, update }) {
                     onChange={e => setTextoEdicao(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && saveEdit()}
                   />
-                  <button className="btn btn-primary" onClick={saveEdit}>Salvar</button>
-                  <button className="btn btn-ghost" onClick={() => setEditando(null)}>Cancelar</button>
+                  <button className="btn btn-primary" onClick={saveEdit}>{t(lang,'hab.save')}</button>
+                  <button className="btn btn-ghost" onClick={() => setEditando(null)}>{t(lang,'hab.cancel')}</button>
                 </>
               ) : (
                 <>
@@ -210,8 +212,8 @@ export default function Habitos({ data, update }) {
                     <span>{h}</span>
                   </label>
                   <span className="badge badge-blue">{streak(h)}d</span>
-                  <button className="btn btn-ghost btn-sm" onClick={() => startEdit(h)}>Editar</button>
-                  <button className="btn btn-danger" onClick={() => removeHabito(h)}>Excluir</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => startEdit(h)}>{t(lang,'hab.edit')}</button>
+                  <button className="btn btn-danger" onClick={() => removeHabito(h)}>{t(lang,'hab.delete')}</button>
                 </>
               )}
             </div>
@@ -221,18 +223,18 @@ export default function Habitos({ data, update }) {
         <div className="inline-form">
           <input
             type="text"
-            placeholder="Adicionar novo hábito..."
+            placeholder={t(lang,'hab.addPh')}
             value={novoHabito}
             onChange={e => setNovoHabito(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addHabito()}
           />
-          <button className="btn btn-primary" onClick={addHabito}>Adicionar</button>
+          <button className="btn btn-primary" onClick={addHabito}>{t(lang,'hab.add')}</button>
         </div>
       </div>
 
       <div className="card">
         <div className="section-header-row">
-          <div className="card-title" style={{ margin: 0 }}>Histórico - {MESES[viewMonth]} {viewYear}</div>
+          <div className="card-title" style={{ margin: 0 }}>{t(lang,'hab.history')} - {MESES_DISP[viewMonth]} {viewYear}</div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button className="btn btn-ghost btn-sm" onClick={prevMonth}>‹</button>
             <button className="btn btn-ghost btn-sm" onClick={nextMonth}>›</button>
@@ -243,10 +245,10 @@ export default function Habitos({ data, update }) {
           <table style={{ fontSize: 12 }}>
             <thead>
               <tr>
-                <th style={{ minWidth: 170 }}>Hábito</th>
+                <th style={{ minWidth: 170 }}>{t(lang,'hab.habitCol')}</th>
                 {dias.map(d => <th key={d} style={{ width: 28, textAlign: 'center', padding: '6px 2px' }}>{d}</th>)}
                 <th style={{ textAlign: 'center' }}>%</th>
-                <th style={{ textAlign: 'center' }}>Seq.</th>
+                <th style={{ textAlign: 'center' }}>{t(lang,'hab.streakCol')}</th>
               </tr>
             </thead>
             <tbody>
@@ -266,7 +268,7 @@ export default function Habitos({ data, update }) {
                             className={`habit-day-button ${done ? 'done' : ''} ${isToday ? 'today' : ''}`}
                             onClick={() => !isFuture && toggleDia(k, h)}
                             disabled={isFuture}
-                            title={isFuture ? 'Dia futuro' : 'Marcar/desmarcar'}
+                            title={isFuture ? t(lang,'hab.futureDay') : t(lang,'hab.toggle')}
                           />
                         </td>
                       )
@@ -282,7 +284,7 @@ export default function Habitos({ data, update }) {
           </table>
         </div>
         <div className="muted-small" style={{ marginTop: 12 }}>
-          Quadrados preenchidos indicam hábito concluído. Clique em qualquer dia passado ou atual para marcar/desmarcar.
+          {t(lang,'hab.legend')}
         </div>
       </div>
     </>

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
+import { t } from '../lib/i18n'
 import { fmt, moneyNumber, calcularFatura } from '../lib/finance'
 
 const EMPTY_FORM = { nome: '', limite: '', fechamento: '10', vencimento: '17' }
 
-export default function FinanceiroCartoes({ data, update }) {
+export default function FinanceiroCartoes({ data, update, lang = 'pt' }) {
   const [form, setForm] = useState(EMPTY_FORM)
   const [editId, setEditId] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -76,11 +77,11 @@ export default function FinanceiroCartoes({ data, update }) {
     <>
       <div className="page-header page-header-actions">
         <div>
-          <h2>Cartões</h2>
-          <p>Limite, uso e próximas faturas de cada cartão de crédito</p>
+          <h2>{t(lang,'car.title')}</h2>
+          <p>{t(lang,'car.sub')}</p>
         </div>
         <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); setEditId(null); setForm(EMPTY_FORM) }}>
-          {showForm ? 'Fechar' : '+ Cartão'}
+          {showForm ? t(lang,'car.close') : t(lang,'car.new')}
         </button>
       </div>
 
@@ -88,34 +89,34 @@ export default function FinanceiroCartoes({ data, update }) {
 
       {showForm && (
         <div className="card" style={{ marginBottom: 20 }}>
-          <div className="card-title">{editId ? 'Editar cartão' : 'Novo cartão'}</div>
+          <div className="card-title">{editId ? t(lang,'car.editTitle') : t(lang,'car.newTitle')}</div>
           <div className="form-row">
             <div className="form-group">
-              <label>Nome *</label>
+              <label>{t(lang,'car.name')}</label>
               <input type="text" value={form.nome} onChange={e => handleField('nome', e.target.value)} placeholder="Ex: Nubank" />
             </div>
             <div className="form-group" style={{ maxWidth: 140 }}>
-              <label>Limite *</label>
+              <label>{t(lang,'car.limit')}</label>
               <input type="number" value={form.limite} onChange={e => handleField('limite', e.target.value)} min="0" step="0.01" />
             </div>
             <div className="form-group" style={{ maxWidth: 140 }}>
-              <label>Dia de fechamento</label>
+              <label>{t(lang,'car.closingDay')}</label>
               <input type="number" min="1" max="31" value={form.fechamento} onChange={e => handleField('fechamento', e.target.value)} />
             </div>
             <div className="form-group" style={{ maxWidth: 140 }}>
-              <label>Dia de vencimento</label>
+              <label>{t(lang,'car.dueDay')}</label>
               <input type="number" min="1" max="31" value={form.vencimento} onChange={e => handleField('vencimento', e.target.value)} />
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-              <button className="btn btn-primary" onClick={handleSave}>Salvar</button>
-              <button className="btn btn-ghost" onClick={resetForm}>Cancelar</button>
+              <button className="btn btn-primary" onClick={handleSave}>{t(lang,'car.save')}</button>
+              <button className="btn btn-ghost" onClick={resetForm}>{t(lang,'car.cancel')}</button>
             </div>
           </div>
         </div>
       )}
 
       {resumo.length === 0 ? (
-        <div className="card"><p className="muted-small">Nenhum cartão cadastrado. Cadastre seus cartões para acompanhar limite e faturas.</p></div>
+        <div className="card"><p className="muted-small">{t(lang,'car.none')}</p></div>
       ) : (
         <div className="grid-2">
           {resumo.map(({ cartao, utilizado, disponivel, proximasFaturas }) => (
@@ -123,35 +124,35 @@ export default function FinanceiroCartoes({ data, update }) {
               <div className="section-header-row" style={{ marginBottom: 14 }}>
                 <div className="card-title" style={{ margin: 0 }}>{cartao.nome}</div>
                 <div className="table-actions">
-                  <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(cartao)}>Editar</button>
-                  <button className="btn btn-danger" onClick={() => handleDelete(cartao.id)}>Excluir</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(cartao)}>{t(lang,'car.edit')}</button>
+                  <button className="btn btn-danger" onClick={() => handleDelete(cartao.id)}>{t(lang,'car.delete')}</button>
                 </div>
               </div>
               <div className="grid-3" style={{ marginBottom: 14 }}>
                 <div>
-                  <div className="card-title">Limite</div>
+                  <div className="card-title">{t(lang,'car.limitLabel')}</div>
                   <div className="stat-value" style={{ fontSize: 17 }}>{fmt(cartao.limite)}</div>
                 </div>
                 <div>
-                  <div className="card-title">Utilizado</div>
+                  <div className="card-title">{t(lang,'car.used')}</div>
                   <div className="stat-value" style={{ fontSize: 17, color: 'var(--red)' }}>{fmt(utilizado)}</div>
                 </div>
                 <div>
-                  <div className="card-title">Disponível</div>
+                  <div className="card-title">{t(lang,'car.available')}</div>
                   <div className="stat-value" style={{ fontSize: 17, color: 'var(--green)' }}>{fmt(disponivel)}</div>
                 </div>
               </div>
               <div className="progress-bar" style={{ marginBottom: 14 }}>
                 <div className="progress-fill" style={{ width: `${Math.min(100, (utilizado / Math.max(1, moneyNumber(cartao.limite))) * 100)}%` }} />
               </div>
-              <div className="muted-small" style={{ marginBottom: 6 }}>Fecha dia {cartao.fechamento} · vence dia {cartao.vencimento}</div>
-              <div className="card-title" style={{ marginTop: 10 }}>Próximas faturas</div>
+              <div className="muted-small" style={{ marginBottom: 6 }}>{t(lang,'car.closingDue',cartao.fechamento,cartao.vencimento)}</div>
+              <div className="card-title" style={{ marginTop: 10 }}>{t(lang,'car.nextBills')}</div>
               {proximasFaturas.length === 0 ? (
-                <p className="muted-small">Nenhuma fatura aberta.</p>
+                <p className="muted-small">{t(lang,'car.noBills')}</p>
               ) : proximasFaturas.map(f => (
                 <div key={f.vencimentoISO} className="list-row">
                   <span className="row-kicker">{f.label}</span>
-                  <span style={{ fontSize: 13 }}>vence {f.vencimentoISO ? new Date(f.vencimentoISO + 'T00:00:00').toLocaleDateString('pt-BR') : ''} · {fmt(f.total)}</span>
+                  <span style={{ fontSize: 13 }}>{t(lang,'car.due')} {f.vencimentoISO ? new Date(f.vencimentoISO + 'T00:00:00').toLocaleDateString(lang==='en'?'en-US':'pt-BR') : ''} · {fmt(f.total)}</span>
                 </div>
               ))}
             </div>
