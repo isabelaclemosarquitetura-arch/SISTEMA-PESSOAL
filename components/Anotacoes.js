@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { t } from '../lib/i18n'
 
 const CORES = [
   { hex: '#ffffff', label: 'Branco'  },
@@ -11,10 +12,11 @@ const CORES = [
 
 const TAGS_SUGERIDAS = ['📌 Importante', '💡 Ideia', '📚 Aprendizado', '✅ Ação', '🔖 Referência', '💬 Reflexão']
 
-export default function Anotacoes({ data, update }) {
+export default function Anotacoes({ data, update, lang = 'pt' }) {
   const anotacoes = data.anotacoes || []
   const [busca, setBusca]       = useState('')
   const [tagFiltro, setTagFiltro] = useState('')
+  const locale = lang === 'en' ? 'en-US' : 'pt-BR'
 
   const addNota = () => update('anotacoes', [{
     id: Date.now(),
@@ -22,7 +24,7 @@ export default function Anotacoes({ data, update }) {
     conteudo: '',
     cor: '#ffffff',
     tag: '',
-    criada: new Date().toLocaleDateString('pt-BR'),
+    criada: new Date().toLocaleDateString(locale),
   }, ...anotacoes])
 
   const updateNota = (id, field, value) =>
@@ -43,23 +45,23 @@ export default function Anotacoes({ data, update }) {
     <>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h2>Anotações e Ideias</h2>
-          <p>Suas notas livres, ideias e organização geral</p>
+          <h2>{t(lang,'nota.title')}</h2>
+          <p>{t(lang,'nota.sub')}</p>
         </div>
-        <button className="btn btn-primary" onClick={addNota}>+ Nova nota</button>
+        <button className="btn btn-primary" onClick={addNota}>{t(lang,'nota.new')}</button>
       </div>
 
       {/* Busca e filtros por tag */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <input
           type="text"
-          placeholder="🔍 Buscar nas anotações..."
+          placeholder={t(lang,'nota.searchPh')}
           value={busca}
           onChange={e => setBusca(e.target.value)}
           style={{ maxWidth: 280 }}
         />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          <button className={`pill ${tagFiltro === '' ? 'active' : ''}`} onClick={() => setTagFiltro('')}>Todas</button>
+          <button className={`pill ${tagFiltro === '' ? 'active' : ''}`} onClick={() => setTagFiltro('')}>{t(lang,'nota.all')}</button>
           {tagsUsadas.map(tag => (
             <button key={tag} className={`pill ${tagFiltro === tag ? 'active' : ''}`} onClick={() => setTagFiltro(tagFiltro === tag ? '' : tag)}>
               {tag}
@@ -73,11 +75,11 @@ export default function Anotacoes({ data, update }) {
         <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>
           <div style={{ fontSize: 32, marginBottom: 10 }}>📝</div>
           <p style={{ fontSize: 14 }}>
-            {busca || tagFiltro ? 'Nenhuma nota encontrada.' : 'Nenhuma anotação ainda.'}
+            {busca || tagFiltro ? t(lang,'nota.noneFound') : t(lang,'nota.none')}
           </p>
           {!busca && !tagFiltro && (
             <button className="btn btn-primary" style={{ marginTop: 14 }} onClick={addNota}>
-              Criar primeira nota
+              {t(lang,'nota.createFirst')}
             </button>
           )}
         </div>
@@ -94,8 +96,8 @@ export default function Anotacoes({ data, update }) {
                     onChange={e => updateNota(n.id, 'tag', e.target.value)}
                     style={{ fontSize: 11, padding: '2px 6px', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 12, background: 'rgba(0,0,0,0.05)', color: 'inherit', width: 'auto' }}
                   >
-                    <option value="">Sem tag</option>
-                    {TAGS_SUGERIDAS.map(t => <option key={t} value={t}>{t}</option>)}
+                    <option value="">{t(lang,'nota.noTag')}</option>
+                    {TAGS_SUGERIDAS.map(tg => <option key={tg} value={tg}>{tg}</option>)}
                     {n.tag && !TAGS_SUGERIDAS.includes(n.tag) && <option value={n.tag}>{n.tag}</option>}
                   </select>
                 </div>
@@ -103,13 +105,13 @@ export default function Anotacoes({ data, update }) {
                   type="text"
                   value={n.titulo}
                   onChange={e => updateNota(n.id, 'titulo', e.target.value)}
-                  placeholder="Título..."
+                  placeholder={t(lang,'nota.titlePh')}
                   style={{ fontWeight: 700, fontSize: 14, border: 'none', background: 'transparent', padding: 0, color: 'var(--text)' }}
                 />
                 <textarea
                   value={n.conteudo}
                   onChange={e => updateNota(n.id, 'conteudo', e.target.value)}
-                  placeholder="Escreva aqui..."
+                  placeholder={t(lang,'nota.contentPh')}
                   style={{ background: 'transparent', border: 'none', padding: 0, minHeight: 90, fontSize: 13 }}
                 />
                 <div className="note-footer">
@@ -133,7 +135,7 @@ export default function Anotacoes({ data, update }) {
                     <button
                       onClick={() => deleteNota(n.id)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#bbb', fontSize: 13, padding: '0 2px' }}
-                      title="Excluir nota"
+                      title={t(lang,'nota.delete')}
                     >
                       🗑️
                     </button>

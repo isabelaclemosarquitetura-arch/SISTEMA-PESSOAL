@@ -14,7 +14,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const hoje = new Date()
   const mesAtualIdx = hoje.getMonth()
   const [mesFiltro, setMesFiltro] = useState(MESES[mesAtualIdx])
-  const [cartaoFiltro, setCartaoFiltro] = useState('Todos')
+  const [cartaoFiltro, setCartaoFiltro] = useState('')
   const [busca, setBusca] = useState('')
   const [form, setForm] = useState({ ...EMPTY_FORM, mes: MESES[mesAtualIdx] })
   const [editId, setEditId] = useState(null)
@@ -32,7 +32,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   }, [lancamentos, cartoesCadastrados])
 
   const lancMesBase = lancamentos.filter(l => (l.mes||'').toLowerCase()===mesFiltro.toLowerCase())
-  const lancMesCartao = cartaoFiltro==='Todos' ? lancMesBase : lancMesBase.filter(l => (l.cartao||'Sem cartão')===cartaoFiltro)
+  const lancMesCartao = cartaoFiltro==='' ? lancMesBase : cartaoFiltro==='__nocard__' ? lancMesBase.filter(l => !l.cartao) : lancMesBase.filter(l => l.cartao===cartaoFiltro)
   const lancMes = busca ? lancMesCartao.filter(l => l.descricao?.toLowerCase().includes(busca.toLowerCase())||l.categoria?.toLowerCase().includes(busca.toLowerCase())) : lancMesCartao
 
   const receitas = sum(lancMes,'Receita'), despesas = sum(lancMes,'Despesa'), saldoPrevisto = receitas-despesas
@@ -149,7 +149,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
         <div className="month-pills">{MESES.map(m=><button key={m} className={`pill ${mesFiltro===m?'active':''}`} onClick={()=>setMesFiltro(m)}>{m.slice(0,3)}</button>)}</div>
         <div style={{ display:'flex', gap:8 }}>
           <input type="text" placeholder={t(lang,'lanc.searchPh')} value={busca} onChange={e=>setBusca(e.target.value)} style={{ minWidth:220 }} />
-          <div className="form-group filter-card-select"><label>{t(lang,'lanc.card').replace(' *','')}</label><select value={cartaoFiltro} onChange={e=>setCartaoFiltro(e.target.value)}><option>{t(lang,'lanc.allCards')}</option><option>{t(lang,'lanc.noCard')}</option>{cartoesUsados.map(c=><option key={c}>{c}</option>)}</select></div>
+          <div className="form-group filter-card-select"><label>{t(lang,'lanc.card').replace(' *','')}</label><select value={cartaoFiltro} onChange={e=>setCartaoFiltro(e.target.value)}><option value="">{t(lang,'lanc.allCards')}</option><option value="__nocard__">{t(lang,'lanc.noCard')}</option>{cartoesUsados.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
         </div>
       </div>
       <div className="grid-4" style={{ marginBottom:20 }}>

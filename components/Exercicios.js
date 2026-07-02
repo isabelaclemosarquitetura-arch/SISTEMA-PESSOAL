@@ -188,55 +188,55 @@ export default function Exercicios({ data, update, lang = 'pt' }) {
             onKeyDown={e => e.key === 'Enter' && addExercicio()}
             style={{ flex: 1, maxWidth: 280 }}
           />
-          <button className="btn btn-primary" onClick={addExercicio}>+ Adicionar</button>
+          <button className="btn btn-primary" onClick={addExercicio}>{t(lang,'ex.addBtn')}</button>
         </div>
       </div>
 
       {/* Registro de treino */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-title">Registrar treino de hoje</div>
+        <div className="card-title">{t(lang,'ex.registerTitle')}</div>
         <div className="form-row">
           <div className="form-group" style={{ maxWidth: 160 }}>
-            <label>Data</label>
+            <label>{t(lang,'ex.date')}</label>
             <input type="date" value={registro.data} onChange={e => setRegistro(r => ({ ...r, data: e.target.value }))} />
           </div>
           <div className="form-group">
-            <label>Exercício destaque</label>
-            <input type="text" value={registro.destaque} onChange={e => setRegistro(r => ({ ...r, destaque: e.target.value }))} placeholder="Ex: Agachamento" />
+            <label>{t(lang,'ex.highlight')}</label>
+            <input type="text" value={registro.destaque} onChange={e => setRegistro(r => ({ ...r, destaque: e.target.value }))} placeholder={t(lang,'ex.highlightPh')} />
           </div>
           <div className="form-group" style={{ maxWidth: 160 }}>
-            <label>Repetições/Tempo</label>
-            <input type="text" value={registro.repeticoes} onChange={e => setRegistro(r => ({ ...r, repeticoes: e.target.value }))} placeholder="Ex: 3x20 / 45min" />
+            <label>{t(lang,'ex.repsTime')}</label>
+            <input type="text" value={registro.repeticoes} onChange={e => setRegistro(r => ({ ...r, repeticoes: e.target.value }))} placeholder={t(lang,'ex.repsPh')} />
           </div>
           <div className="form-group" style={{ maxWidth: 120 }}>
-            <label>Carga (kg)</label>
-            <input type="text" value={registro.carga} onChange={e => setRegistro(r => ({ ...r, carga: e.target.value }))} placeholder="Ex: 20kg" />
+            <label>{t(lang,'ex.load')}</label>
+            <input type="text" value={registro.carga} onChange={e => setRegistro(r => ({ ...r, carga: e.target.value }))} placeholder={t(lang,'ex.loadPh')} />
           </div>
           <div className="form-group">
-            <label>Observações</label>
-            <input type="text" value={registro.observacoes} onChange={e => setRegistro(r => ({ ...r, observacoes: e.target.value }))} placeholder="Como foi o treino?" />
+            <label>{t(lang,'ex.notes')}</label>
+            <input type="text" value={registro.observacoes} onChange={e => setRegistro(r => ({ ...r, observacoes: e.target.value }))} placeholder={t(lang,'ex.notesPh')} />
           </div>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-            <button className="btn btn-primary" onClick={salvarRegistro}>Salvar</button>
+            <button className="btn btn-primary" onClick={salvarRegistro}>{t(lang,'ex.save')}</button>
           </div>
         </div>
       </div>
 
       {/* Histórico */}
       <div className="card">
-        <div className="card-title">Histórico de treinos ({historico.length})</div>
+        <div className="card-title">{t(lang,'ex.historyTitle',historico.length)}</div>
         {historico.length === 0 ? (
-          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhum treino registrado ainda.</p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t(lang,'ex.noHistory')}</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Data</th>
-                  <th>Exercício</th>
-                  <th>Reps/Tempo</th>
-                  <th>Carga</th>
-                  <th>Observações</th>
+                  <th>{t(lang,'ex.dateCol')}</th>
+                  <th>{t(lang,'ex.exerciseCol')}</th>
+                  <th>{t(lang,'ex.reps')}</th>
+                  <th>{t(lang,'ex.loadCol')}</th>
+                  <th>{t(lang,'ex.obsCol')}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -244,7 +244,7 @@ export default function Exercicios({ data, update, lang = 'pt' }) {
                 {historico.map(r => (
                   <tr key={r.id}>
                     <td style={{ fontWeight: 600, color: 'var(--accent)' }}>
-                      {r.data ? new Date(r.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
+                      {r.data ? new Date(r.data + 'T00:00:00').toLocaleDateString(locale) : '—'}
                     </td>
                     <td>{r.destaque}</td>
                     <td>{r.repeticoes}</td>
@@ -263,19 +263,19 @@ export default function Exercicios({ data, update, lang = 'pt' }) {
       {exerciciosHistorico.length > 0 && (
         <div className="card" style={{ marginTop: 20 }}>
           <div className="section-header-row" style={{ marginBottom: 14 }}>
-            <div className="card-title" style={{ margin: 0 }}>Evolução por exercício</div>
+            <div className="card-title" style={{ margin: 0 }}>{t(lang,'ex.progression')}</div>
             <select
               value={progressaoEx}
               onChange={e => setProgressaoEx(e.target.value)}
               style={{ fontSize: 13, padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--white)', color: 'var(--text)', cursor: 'pointer', minWidth: 180 }}
             >
-              <option value="">Selecionar exercício...</option>
+              <option value="">{t(lang,'ex.selectEx')}</option>
               {exerciciosHistorico.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
 
           {progressaoEx && progressaoData.length === 0 && (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Nenhum registro para este exercício ainda.</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t(lang,'ex.noRecords')}</p>
           )}
 
           {progressaoData.length > 0 && (
@@ -284,7 +284,7 @@ export default function Exercicios({ data, update, lang = 'pt' }) {
               {progressaoData.some(r => r.carga) && (
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Evolução de carga
+                    {t(lang,'ex.loadEvol')}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 48 }}>
                     {(() => {
@@ -299,7 +299,7 @@ export default function Exercicios({ data, update, lang = 'pt' }) {
                         const h = Math.max(8, Math.round(((v - min) / range) * 36) + 8)
                         const isLast = i === comCarga.length - 1
                         return (
-                          <div key={r.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flex: 1, maxWidth: 40 }} title={`${r.data ? new Date(r.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''}: ${r.carga}kg`}>
+                          <div key={r.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, flex: 1, maxWidth: 40 }} title={`${r.data ? new Date(r.data + 'T00:00:00').toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }) : ''}: ${r.carga}kg`}>
                             <div style={{ width: '100%', height: h, background: isLast ? 'var(--accent)' : 'var(--border)', borderRadius: 4, transition: 'height 0.3s' }} />
                             {isLast && <span style={{ fontSize: 9, color: 'var(--accent)', fontWeight: 700 }}>{r.carga}</span>}
                           </div>
@@ -314,10 +314,10 @@ export default function Exercicios({ data, update, lang = 'pt' }) {
                 <table style={{ fontSize: 12 }}>
                   <thead>
                     <tr>
-                      <th>Data</th>
-                      <th>Reps/Tempo</th>
-                      <th>Carga</th>
-                      <th>Observações</th>
+                      <th>{t(lang,'ex.dateCol')}</th>
+                      <th>{t(lang,'ex.reps')}</th>
+                      <th>{t(lang,'ex.loadCol')}</th>
+                      <th>{t(lang,'ex.obsCol')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -329,7 +329,7 @@ export default function Exercicios({ data, update, lang = 'pt' }) {
                       return (
                         <tr key={r.id}>
                           <td style={{ fontWeight: 600, color: 'var(--accent)', whiteSpace: 'nowrap' }}>
-                            {r.data ? new Date(r.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
+                            {r.data ? new Date(r.data + 'T00:00:00').toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'}
                           </td>
                           <td>{r.repeticoes || '—'}</td>
                           <td style={{ fontWeight: 600 }}>
