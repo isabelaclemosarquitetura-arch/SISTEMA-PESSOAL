@@ -324,15 +324,15 @@ export default function Home() {
         </div>
 
         <nav className="sidebar-nav">
-          {TABS.map((t, idx) => (
+          {TABS.map((tb, idx) => (
             <div
-              key={t.id}
-              className={`nav-item ${tab === t.id ? 'active' : ''}`}
-              onClick={() => setTab(t.id)}
-              title={sidebarCollapsed ? `${t.label} (${t(lang, 'keyHint')} ${idx + 1})` : `${t(lang, 'keyHint')} ${idx + 1}`}
+              key={tb.id}
+              className={`nav-item ${tab === tb.id ? 'active' : ''}`}
+              onClick={() => setTab(tb.id)}
+              title={sidebarCollapsed ? `${tb.label} (${t(lang, 'keyHint')} ${idx + 1})` : `${t(lang, 'keyHint')} ${idx + 1}`}
             >
-              <span className="nav-icon">{t.icon}</span>
-              <span className="nav-label">{t.label}</span>
+              <span className="nav-icon">{tb.icon}</span>
+              <span className="nav-label">{tb.label}</span>
             </div>
           ))}
         </nav>
