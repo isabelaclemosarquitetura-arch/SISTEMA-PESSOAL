@@ -274,7 +274,7 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
         <div className="weekly-summary-item">
           <div className="weekly-summary-label">{t(lang, 'dash.bestStreak')}</div>
           <div className="weekly-summary-value" style={{ color: melhorStreak >= 7 ? 'var(--green)' : melhorStreak >= 3 ? 'var(--accent)' : 'var(--text)' }}>
-            {melhorStreak > 0 ? `${melhorStreak}d 🔥` : '—'}
+            {melhorStreak > 0 ? `${melhorStreak}d` : '—'}
           </div>
           <div className="weekly-summary-sub">{t(lang, 'dash.daysStreak')}</div>
         </div>
@@ -567,7 +567,7 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
       </div>
 
       {/* ── SEÇÃO 7: METAS ── */}
-      <div className="dashboard-section-label">🎯 {t(lang, 'tab.metas')}</div>
+      <div className="dashboard-section-label">{t(lang, 'tab.metas')}</div>
       <div className="card">
         <div className="card-title">{t(lang, 'dash.goalsOverview')}</div>
         <div className="dashboard-goals">

@@ -125,7 +125,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
       <div className="page-header page-header-actions">
         <div><h2>{t(lang,'lanc.title')}</h2><p>{t(lang,'lanc.sub')}</p></div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn btn-ghost" onClick={exportCSV} title="Export CSV">📤 CSV</button>
+          <button className="btn btn-ghost" onClick={exportCSV} title="Export CSV">↓ CSV</button>
           <button className="btn btn-ghost" onClick={() => setShowOrcamento(s=>!s)}>{t(lang,'lanc.budget')}</button>
           <button className="btn btn-primary" onClick={() => {setShowForm(!showForm);setEditId(null);setForm({...EMPTY_FORM,mes:mesFiltro})}}>{showForm?t(lang,'lanc.close'):t(lang,'lanc.new')}</button>
         </div>
@@ -216,13 +216,19 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
         {lancMes.length===0?<p className="muted-small">{t(lang,'lanc.noneFiltered')}</p>:(
           <div className="table-wrap"><table>
             <thead><tr><th>{t(lang,'lanc.typeCol')}</th><th>{t(lang,'lanc.catCol')}</th><th>{t(lang,'lanc.payCol')}</th><th>{t(lang,'lanc.descCol')}</th><th>{t(lang,'lanc.valueCol')}</th><th>{t(lang,'lanc.dateCol')}</th><th>{t(lang,'lanc.instCol')}</th><th>{t(lang,'lanc.statusCol')}</th><th></th></tr></thead>
-            <tbody>{lancMes.map(l=>(
-              <tr key={l.id}>
+            <tbody>{lancMes.map(l=>{
+              const isSettled=(l.tipo==='Despesa'&&l.status==='Pago')||(l.tipo==='Receita'&&l.status==='Recebida')
+              const isPending=l.tipo==='Despesa'&&l.status==='Pendente'
+              const valorColor=l.tipo==='Receita'
+                ?(l.status==='Recebida'?'var(--green)':'var(--blue)')
+                :(l.status==='Pago'?'var(--text-muted)':'var(--red)')
+              return(
+              <tr key={l.id} className={isSettled?'row-settled':isPending?'row-pending':''}>
                 <td><span className={`badge ${l.tipo==='Receita'?'badge-green':'badge-red'}`}>{l.tipo}</span></td>
                 <td className="muted-cell">{l.categoria}</td>
                 <td className="muted-cell">{l.tipo==='Despesa'?(l.formaPagamento||'-')+(l.cartao?` · ${l.cartao}`:''):'-'}</td>
                 <td style={{ fontWeight:500 }}>{l.descricao}{l.recorrenciaGrupoId&&<span className="badge badge-gray" style={{ marginLeft:6 }} title="Recorrente">↻</span>}</td>
-                <td style={{ fontWeight:600,color:l.tipo==='Receita'?'var(--green)':'var(--red)' }}>{fmt(l.valor)}</td>
+                <td style={{ fontWeight:600,color:valorColor }}>{fmt(l.valor)}</td>
                 <td className="muted-cell">{fmtDataBR(l.vencimento)}</td>
                 <td className="muted-cell">{l.parcela}</td>
                 <td><label className="checkbox-label" style={{ marginBottom:0 }}><input type="checkbox" checked={l.tipo==='Despesa'?l.status==='Pago':l.status==='Recebida'} onChange={()=>toggleStatus(l)} style={{ accentColor:'var(--green)',cursor:'pointer' }} /><span className={`badge ${l.status==='Pago'||l.status==='Recebida'?'badge-green':l.tipo==='Receita'?'badge-blue':'badge-yellow'}`}>{l.status}</span></label></td>
@@ -233,7 +239,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
                   <button className="btn btn-danger" onClick={()=>handleDelete(l)}>{t(lang,'lanc.delete')}</button>
                 </td>
               </tr>
-            ))}</tbody>
+            )})}</tbody>
           </table></div>
         )}
       </div>
