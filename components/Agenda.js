@@ -305,7 +305,7 @@ export default function Agenda({ data, update, lang = 'pt' }) {
                     <button
                       className="task-remove-btn"
                       onClick={() => removeTask(key, i)}
-                      title="Remover linha"
+                      title={t(lang,'agenda.removeRow')}
                     >
                       ×
                     </button>

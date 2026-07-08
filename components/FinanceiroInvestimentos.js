@@ -71,7 +71,7 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
 
   const handleSave = () => {
     if (!form.nome.trim() || !form.valorInvestido) {
-      showFeedback('Preencha nome e valor investido.')
+      showFeedback(t(lang,'lanc.fillRequired').replace('descrição e valor','nome e valor investido'))
       return
     }
     const instituicaoFinal = form.instituicao === 'Outros' && form.instituicaoCustom.trim() ? form.instituicaoCustom.trim() : form.instituicao
@@ -92,16 +92,16 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
     }
 
     if ((payload.rentabilidadeTipo === '% CDI' || payload.rentabilidadeTipo === 'Prefixado') && !payload.dataInvestimento) {
-      showFeedback('Informe a data do investimento para calcular o rendimento automaticamente.')
+      showFeedback(t(lang,'inv.cdiDateRequired'))
       return
     }
 
     if (editId !== null) {
       update('investimentos', investimentos.map(i => i.id === editId ? { ...payload, id: editId } : i))
-      showFeedback('Investimento atualizado.')
+      showFeedback(t(lang,'inv.updated'))
     } else {
       update('investimentos', [...investimentos, { ...payload, id: Date.now() }])
-      showFeedback('Investimento salvo.')
+      showFeedback(t(lang,'inv.saved'))
     }
     resetForm()
   }
@@ -121,7 +121,7 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
 
   const handleDelete = (id) => {
     update('investimentos', investimentos.filter(i => i.id !== id))
-    showFeedback('Investimento excluído.')
+    showFeedback(t(lang,'inv.deleted'))
   }
 
   const atualizarCDI = async () => {
@@ -129,9 +129,9 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
     try {
       const { taxaAnual, dataReferencia } = await buscarCDIAnualAtual()
       update('configCDI', { taxaAnual, atualizadoEm: new Date().toISOString(), manual: false, dataReferencia })
-      showFeedback(`Taxa CDI atualizada: ${taxaAnual.toFixed(2)}% a.a. (ref. BCB ${dataReferencia})`)
+      showFeedback(t(lang,'inv.cdiUpdated',taxaAnual.toFixed(2),dataReferencia))
     } catch (e) {
-      showFeedback('Não foi possível buscar o CDI agora. Mantendo a taxa atual.')
+      showFeedback(t(lang,'inv.cdiFetchError'))
     } finally {
       setBuscandoCDI(false)
     }
@@ -156,17 +156,17 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
       {feedback && <div className="toast-inline">{feedback}</div>}
 
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-title">Taxa CDI anual usada nos cálculos</div>
+        <div className="card-title">{t(lang,'inv.cdiTitle')}</div>
         <div className="form-row" style={{ alignItems: 'center' }}>
           <div className="form-group" style={{ maxWidth: 140 }}>
-            <label>CDI anual (%)</label>
+            <label>{t(lang,'inv.cdiLabel')}</label>
             <input type="number" step="0.01" value={configCDI.taxaAnual || ''} onChange={e => setTaxaManual(e.target.value)} />
           </div>
           <button className="btn btn-ghost" onClick={atualizarCDI} disabled={buscandoCDI}>
-            {buscandoCDI ? 'Buscando...' : 'Atualizar via Banco Central'}
+            {buscandoCDI ? t(lang,'inv.cdiFetching') : t(lang,'inv.cdiUpdate')}
           </button>
           <span className="muted-small">
-            {configCDI.manual ? 'Definida manualmente.' : `Atualizada automaticamente${configCDI.dataReferencia ? ` (ref. ${configCDI.dataReferencia})` : ''}.`}
+            {configCDI.manual ? t(lang,'inv.cdiManual') : `${t(lang,'inv.cdiAuto')}${configCDI.dataReferencia ? ` ${t(lang,'inv.cdiRef',configCDI.dataReferencia)}` : ''}.`}
           </span>
         </div>
       </div>
@@ -196,24 +196,24 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
           <div className="card-title">{editId ? t(lang,'inv.edit') + ' ' + t(lang,'inv.title').toLowerCase() : t(lang,'inv.new').replace('+ ','')}</div>
           <div className="form-row" style={{ marginBottom: 10 }}>
             <div className="form-group">
-              <label>Nome *</label>
-              <input type="text" value={form.nome} onChange={e => handleField('nome', e.target.value)} placeholder="Ex: Reserva de emergência" />
+              <label>{t(lang,'inv.nameReq')}</label>
+              <input type="text" value={form.nome} onChange={e => handleField('nome', e.target.value)} placeholder={t(lang,'inv.exName')} />
             </div>
             <div className="form-group" style={{ maxWidth: 160 }}>
-              <label>Tipo</label>
+              <label>{t(lang,'inv.type')}</label>
               <select value={form.tipo} onChange={e => handleField('tipo', e.target.value)}>
-                {TIPOS_INVESTIMENTO.map(t => <option key={t}>{t}</option>)}
+                {TIPOS_INVESTIMENTO.map(tp => <option key={tp}>{tp}</option>)}
               </select>
             </div>
             <div className="form-group" style={{ maxWidth: 160 }}>
-              <label>Instituição</label>
+              <label>{t(lang,'inv.institution')}</label>
               <select value={form.instituicao} onChange={e => handleField('instituicao', e.target.value)}>
                 {INSTITUICOES_INVESTIMENTO.map(i => <option key={i}>{i}</option>)}
               </select>
             </div>
             {form.instituicao === 'Outros' && (
               <div className="form-group">
-                <label>Qual instituição?</label>
+                <label>{t(lang,'inv.instCustomPh')}</label>
                 <input type="text" value={form.instituicaoCustom} onChange={e => handleField('instituicaoCustom', e.target.value)} />
               </div>
             )}
@@ -221,34 +221,34 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
 
           <div className="form-row" style={{ marginBottom: 10 }}>
             <div className="form-group" style={{ maxWidth: 140 }}>
-              <label>Valor investido *</label>
+              <label>{t(lang,'inv.investedLabel')}</label>
               <input type="number" value={form.valorInvestido} onChange={e => handleField('valorInvestido', e.target.value)} min="0" step="0.01" />
             </div>
             <div className="form-group" style={{ maxWidth: 150 }}>
-              <label>Data do investimento</label>
+              <label>{t(lang,'inv.dateLabel')}</label>
               <input type="date" value={form.dataInvestimento} onChange={e => handleField('dataInvestimento', e.target.value)} />
             </div>
             <div className="form-group" style={{ maxWidth: 140 }}>
-              <label>Rentabilidade</label>
+              <label>{t(lang,'inv.profitability')}</label>
               <select value={form.rentabilidadeTipo} onChange={e => handleField('rentabilidadeTipo', e.target.value)}>
                 {RENTABILIDADE_TIPOS.map(r => <option key={r}>{r}</option>)}
               </select>
             </div>
             {form.rentabilidadeTipo === '% CDI' && (
               <div className="form-group" style={{ maxWidth: 130 }}>
-                <label>% do CDI</label>
+                <label>{t(lang,'inv.pctCDI')}</label>
                 <input type="number" value={form.rentabilidadeValor} onChange={e => handleField('rentabilidadeValor', e.target.value)} placeholder="ex: 120" />
               </div>
             )}
             {form.rentabilidadeTipo === 'Prefixado' && (
               <div className="form-group" style={{ maxWidth: 130 }}>
-                <label>Taxa anual (%)</label>
+                <label>{t(lang,'inv.annualRate')}</label>
                 <input type="number" value={form.rentabilidadeValor} onChange={e => handleField('rentabilidadeValor', e.target.value)} placeholder="ex: 12" />
               </div>
             )}
             {form.rentabilidadeTipo === 'Manual' && (
               <div className="form-group" style={{ maxWidth: 140 }}>
-                <label>Valor atual</label>
+                <label>{t(lang,'inv.currentVal')}</label>
                 <input type="number" value={form.valorAtual} onChange={e => handleField('valorAtual', e.target.value)} min="0" step="0.01" />
               </div>
             )}
@@ -256,23 +256,23 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
 
           <div className="form-row">
             <div className="form-group" style={{ maxWidth: 160 }}>
-              <label>Liquidez</label>
+              <label>{t(lang,'inv.liquidity')}</label>
               <select value={form.liquidez} onChange={e => handleField('liquidez', e.target.value)}>
                 {LIQUIDEZ_OPCOES.map(l => <option key={l}>{l}</option>)}
               </select>
             </div>
             {form.liquidez === 'Personalizada' && (
               <div className="form-group" style={{ maxWidth: 140 }}>
-                <label>Qual prazo?</label>
+                <label>{t(lang,'inv.customDeadline')}</label>
                 <input type="text" value={form.liquidezCustom} onChange={e => handleField('liquidezCustom', e.target.value)} placeholder="ex: D+90" />
               </div>
             )}
             <div className="form-group" style={{ maxWidth: 150 }}>
-              <label>Aporte mensal planejado</label>
-              <input type="number" value={form.aporteMensal} onChange={e => handleField('aporteMensal', e.target.value)} min="0" step="0.01" placeholder="opcional" />
+              <label>{t(lang,'inv.monthly')}</label>
+              <input type="number" value={form.aporteMensal} onChange={e => handleField('aporteMensal', e.target.value)} min="0" step="0.01" placeholder={t(lang,'inv.optional')} />
             </div>
             <div className="form-group">
-              <label>Observação</label>
+              <label>{t(lang,'inv.obs')}</label>
               <input type="text" value={form.observacao} onChange={e => handleField('observacao', e.target.value)} />
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>

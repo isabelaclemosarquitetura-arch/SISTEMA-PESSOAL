@@ -75,21 +75,21 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const resetForm = () => { setForm({...EMPTY_FORM,mes:mesFiltro}); setEditId(null); setShowForm(false) }
 
   const handleSave = () => {
-    if(!form.descricao.trim()||!form.valor){showFeedback('Preencha descrição e valor.');return}
-    if(form.tipo==='Despesa'&&form.formaPagamento==='Crédito'&&!form.cartao){showFeedback('Selecione o cartão.');return}
+    if(!form.descricao.trim()||!form.valor){showFeedback(t(lang,'lanc.fillRequired'));return}
+    if(form.tipo==='Despesa'&&form.formaPagamento==='Crédito'&&!form.cartao){showFeedback(t(lang,'lanc.selectCardReq'));return}
     const payload={...form,descricao:form.descricao.trim(),cartao:form.tipo==='Despesa'&&form.formaPagamento==='Crédito'?form.cartao:'',formaPagamento:form.tipo==='Despesa'?form.formaPagamento:''}
     if(editId!==null){
       const original=lancamentos.find(l=>l.id===editId)
       let aplicarFuturos=false
-      if(original?.recorrenciaGrupoId)aplicarFuturos=window.confirm('Esta é uma recorrência. Aplicar às ocorrências futuras?')
+      if(original?.recorrenciaGrupoId)aplicarFuturos=window.confirm(t(lang,'lanc.confirmRecurEdit'))
       update('financeiro',lancamentos.map(l=>{if(l.id===editId)return{...payload,id:editId};if(aplicarFuturos&&l.recorrenciaGrupoId===original.recorrenciaGrupoId&&l.vencimento>original.vencimento)return{...l,valor:payload.valor,categoria:payload.categoria,descricao:payload.descricao,formaPagamento:payload.formaPagamento,cartao:payload.cartao,observacao:payload.observacao};return l}))
-      showFeedback('Lançamento atualizado.')
+      showFeedback(t(lang,'lanc.updated'))
     } else {
       const novoId=Date.now()
       let novo={...payload,id:novoId}
       if(novo.recorrente){novo.recorrenciaGrupoId=String(novoId);novo.recorrenciaAtiva=true}else{novo.recorrenciaGrupoId=''}
       update('financeiro',[...lancamentos,novo])
-      showFeedback(novo.recorrente?'Lançamento salvo. Próximas ocorrências geradas.':'Lançamento salvo.')
+      showFeedback(novo.recorrente?t(lang,'lanc.savedRec'):t(lang,'lanc.saved'))
     }
     resetForm()
   }
@@ -97,19 +97,19 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const handleEdit = (l) => { setForm({...EMPTY_FORM,...l}); setEditId(l.id); setShowForm(true); window.scrollTo({top:0,behavior:'smooth'}) }
   const handleDelete = (l) => {
     if(l.recorrenciaGrupoId){
-      const futuros=window.confirm('Excluir também as ocorrências futuras desta recorrência?')
-      if(futuros){update('financeiro',lancamentos.filter(x=>!(x.recorrenciaGrupoId===l.recorrenciaGrupoId&&x.vencimento>=l.vencimento)));showFeedback('Excluído com ocorrências futuras.');return}
+      const futuros=window.confirm(t(lang,'lanc.confirmRecurDelete'))
+      if(futuros){update('financeiro',lancamentos.filter(x=>!(x.recorrenciaGrupoId===l.recorrenciaGrupoId&&x.vencimento>=l.vencimento)));showFeedback(t(lang,'lanc.deletedFuture'));return}
     } else {
       if(!window.confirm(`Excluir "${l.descricao}" (${fmt(moneyNumber(l.valor))})?`)) return
     }
-    update('financeiro',lancamentos.filter(x=>x.id!==l.id));showFeedback('Lançamento excluído.')
+    update('financeiro',lancamentos.filter(x=>x.id!==l.id));showFeedback(t(lang,'lanc.deleted'))
   }
-  const handleDuplicate = (l) => { update('financeiro',[...lancamentos,{...l,id:Date.now(),status:l.tipo==='Receita'?'Prevista':'Pendente',pago:false,recorrente:false,recorrenciaGrupoId:''}]);showFeedback('Duplicado.') }
+  const handleDuplicate = (l) => { update('financeiro',[...lancamentos,{...l,id:Date.now(),status:l.tipo==='Receita'?'Prevista':'Pendente',pago:false,recorrente:false,recorrenciaGrupoId:''}]);showFeedback(t(lang,'lanc.duplicated')) }
   const toggleStatus = (l) => {
     if(l.tipo==='Despesa'){const ns=l.status==='Pago'?'Pendente':'Pago';update('financeiro',lancamentos.map(x=>x.id===l.id?{...x,status:ns,pago:ns==='Pago'}:x))}
     else{const ns=l.status==='Recebida'?'Prevista':'Recebida';update('financeiro',lancamentos.map(x=>x.id===l.id?{...x,status:ns,dataRecebimento:ns==='Recebida'?hojeISO():''}:x))}
   }
-  const pararRecorrencia = (l) => { update('financeiro',lancamentos.map(x=>x.recorrenciaGrupoId===l.recorrenciaGrupoId?{...x,recorrenciaAtiva:false}:x));showFeedback('Recorrência interrompida.') }
+  const pararRecorrencia = (l) => { update('financeiro',lancamentos.map(x=>x.recorrenciaGrupoId===l.recorrenciaGrupoId?{...x,recorrenciaAtiva:false}:x));showFeedback(t(lang,'lanc.recurrStopped')) }
 
   const exportCSV = () => {
     const header=['Tipo','Mês','Categoria','Descrição','Valor','Vencimento','Parcela','Forma Pagamento','Cartão','Status']
@@ -117,7 +117,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
     const csv=[header,...rows].map(r=>r.map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(';')).join('\n')
     const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'})
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`lancamentos-${mesFiltro}-${new Date().getFullYear()}.csv`;a.click();URL.revokeObjectURL(url)
-    showFeedback(`CSV exportado: ${lancMesBase.length} lançamentos de ${mesFiltro}.`)
+    showFeedback(t(lang,'lanc.csvExported',lancMesBase.length,mesFiltro))
   }
 
   return (
@@ -210,7 +210,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
       </div>
       <div className="card">
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-          <div className="card-title" style={{ margin:0 }}>{mesFiltro} — {lancMes.length} lançamento{lancMes.length!==1?'s':''}{busca&&<span className="muted-small" style={{ marginLeft:8 }}>(busca: "{busca}")</span>}</div>
+          <div className="card-title" style={{ margin:0 }}>{mesFiltro} — {lancMes.length} {lancMes.length!==1?t(lang,'lanc.countLabelPl'):t(lang,'lanc.countLabel')}{busca&&<span className="muted-small" style={{ marginLeft:8 }}>({t(lang,'lanc.searchLabel')} "{busca}")</span>}</div>
           {busca&&<button className="btn btn-ghost btn-sm" onClick={()=>setBusca('')}>{t(lang,'lanc.clearSearch')}</button>}
         </div>
         {lancMes.length===0?<p className="muted-small">{t(lang,'lanc.noneFiltered')}</p>:(
@@ -227,7 +227,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
                 <td><span className={`badge ${l.tipo==='Receita'?'badge-green':'badge-red'}`}>{l.tipo}</span></td>
                 <td className="muted-cell">{l.categoria}</td>
                 <td className="muted-cell">{l.tipo==='Despesa'?(l.formaPagamento||'-')+(l.cartao?` · ${l.cartao}`:''):'-'}</td>
-                <td style={{ fontWeight:500 }}>{l.descricao}{l.recorrenciaGrupoId&&<span className="badge badge-gray" style={{ marginLeft:6 }} title="Recorrente">↻</span>}</td>
+                <td style={{ fontWeight:500 }}>{l.descricao}{l.recorrenciaGrupoId&&<span className="badge badge-gray" style={{ marginLeft:6 }} title={t(lang,'lanc.recurrBadge')}>↻</span>}</td>
                 <td style={{ fontWeight:600,color:valorColor }}>{fmt(l.valor)}</td>
                 <td className="muted-cell">{fmtDataBR(l.vencimento)}</td>
                 <td className="muted-cell">{l.parcela}</td>
