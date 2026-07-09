@@ -1902,3 +1902,563 @@ kbd {
     transform 0.15s ease,
     color 0.15s ease;
 }
+
+/* ── SEÇÃO SAÚDE ── */
+.saude-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.saude-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.saude-section-header-icon {
+  font-size: 24px;
+}
+
+.saude-section-titulo {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.saude-section-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.saude-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 900px) {
+  .saude-grid {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.saude-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.saude-card:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+.saude-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 16px;
+}
+
+.saude-card-icon {
+  font-size: 28px;
+  width: 44px;
+  height: 44px;
+  background: rgba(201, 169, 110, 0.12);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saude-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.saude-card-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.saude-nao-iniciado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 30px 20px;
+  gap: 16px;
+}
+
+.saude-nao-iniciado-icon {
+  font-size: 48px;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+.saude-nao-iniciado p {
+  color: var(--text-muted);
+  max-width: 380px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.saude-iniciar-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+  width: 100%;
+}
+
+.saude-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.saude-confirm-reinicio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(201, 66, 66, 0.05);
+  border: 1px solid rgba(201, 66, 66, 0.15);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  animation: slideIn 0.20s ease-out;
+}
+
+.saude-counter-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  text-align: center;
+  background: linear-gradient(180deg, rgba(201, 169, 110, 0.03), transparent);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+.saude-counter-numero {
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -2px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+
+.saude-counter-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  margin-top: 6px;
+}
+
+.saude-counter-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.saude-counter-detail {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.saude-counter-detail span {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg);
+  padding: 3px 8px;
+  border-radius: 12px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.saude-progresso-marco {
+  margin-bottom: 20px;
+  background: rgba(201, 169, 110, 0.02);
+  border: 1px solid var(--border);
+  padding: 14px;
+  border-radius: var(--radius-md);
+}
+
+.saude-progresso-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.saude-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.saude-stat {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+}
+
+.saude-stat-valor {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.saude-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.saude-hoje-panel {
+  background: #fffdf9;
+  border: 1px solid rgba(201, 169, 110, 0.25);
+  border-left: 4px solid var(--accent);
+  padding: 16px;
+  border-radius: var(--radius-sm) var(--radius-md) var(--radius-md) var(--radius-sm);
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(201, 169, 110, 0.04);
+}
+
+.saude-hoje-titulo {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-dark);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.saude-hoje-icone {
+  font-size: 14px;
+}
+
+.saude-hoje-marco {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.saude-hoje-lista {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.saude-hoje-lista li {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.saude-fonte {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 12px;
+  text-align: right;
+  opacity: 0.8;
+}
+
+.saude-next-card {
+  border-left: 4px solid var(--border);
+  background: var(--bg);
+  padding: 14px 16px;
+  border-radius: var(--radius-sm) var(--radius-md) var(--radius-md) var(--radius-sm);
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.saude-next-titulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.saude-next-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.saude-next-marco {
+  display: flex;
+  align-items: flex-start;
+}
+
+.saude-em-breve {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 30px 20px;
+  opacity: 0.6;
+  border-style: dashed;
+  background: transparent;
+  min-height: 160px;
+}
+
+.saude-em-breve .saude-card-icon {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.saude-em-breve .saude-card-title {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.saude-em-breve .saude-card-sub {
+  margin-top: 4px;
+}
+
+/* Timeline */
+.saude-timeline {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.saude-timeline-titulo {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.saude-timeline-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  padding-left: 28px;
+}
+
+.saude-tl-item {
+  position: relative;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.saude-tl-item:hover {
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+.saude-tl-linha {
+  position: absolute;
+  left: -18px;
+  top: 22px;
+  bottom: -22px;
+  width: 2px;
+  z-index: 1;
+}
+
+.saude-tl-item:last-child .saude-tl-linha {
+  display: none;
+}
+
+.saude-tl-dot {
+  position: absolute;
+  left: -23px;
+  top: 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.saude-tl-check {
+  color: white;
+  font-size: 8px;
+  font-weight: bold;
+}
+
+.saude-tl-conteudo {
+  display: flex;
+  flex-direction: column;
+}
+
+.saude-tl-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.saude-tl-icone {
+  font-size: 20px;
+  opacity: 0.8;
+}
+
+.saude-tl-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.saude-tl-titulo-marco {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-top: 1px;
+}
+
+.saude-tl-badge-done {
+  font-size: 9px;
+  background: rgba(45, 146, 82, 0.1);
+  color: var(--green);
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+.saude-tl-badge-proximo {
+  font-size: 9px;
+  background: rgba(201, 169, 110, 0.1);
+  color: var(--accent-dark);
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 8px;
+  font-weight: 600;
+}
+
+.saude-tl-beneficios {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.saude-tl-beneficios ul {
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.saude-tl-beneficios li {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Animações */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Ajustes Dark Mode */
+[data-theme="dark"] .saude-card {
+  background: #181824;
+}
+
+[data-theme="dark"] .saude-card-icon {
+  background: rgba(201, 169, 110, 0.08);
+}
+
+[data-theme="dark"] .saude-stat {
+  background: #14141e;
+}
+
+[data-theme="dark"] .saude-counter-detail span {
+  background: #14141e;
+}
+
+[data-theme="dark"] .saude-hoje-panel {
+  background: #1e1b12;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .saude-next-card {
+  background: #14141e;
+}
+
+[data-theme="dark"] .saude-tl-item:hover {
+  background: #14141e;
+}
+
+[data-theme="dark"] .saude-tl-beneficios {
+  background: #181824;
+}
+

@@ -59,6 +59,7 @@ const INITIAL_DATA = {
   },
   anotacoes: [],
   orcamentoCategoria: {},
+  saudeAbstinencia: {},
 }
 
 export default function Home() {

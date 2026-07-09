@@ -1,5 +1,11 @@
 import { useState } from 'react'
 import { t, MESES_EN } from '../lib/i18n'
+import SaudeSection from './SaudeSection'
+
+const SUBTAB_IDS = [
+  { id: 'habitos', key: 'tab.habitos' },
+  { id: 'saude', key: 'saude.title' },
+]
 
 const HABITOS_DEFAULT = [
   'Beber 2L de água',
@@ -25,6 +31,8 @@ function todayKey(date) {
 }
 
 export default function Habitos({ data, update, lang = 'pt' }) {
+  const [subtab, setSubtab] = useState('habitos')
+  const SUBTABS = SUBTAB_IDS.map(s => ({ ...s, label: t(lang, s.key) }))
   const MESES_DISP = lang === 'en' ? MESES_EN : MESES
   const hoje = new Date()
   const [viewYear, setViewYear] = useState(hoje.getFullYear())
@@ -130,10 +138,20 @@ export default function Habitos({ data, update, lang = 'pt' }) {
 
   return (
     <>
-      <div className="page-header">
-        <h2>{t(lang,'hab.title')}</h2>
-        <p>{t(lang,'hab.sub')}</p>
+      <div className="subtab-nav">
+        {SUBTABS.map(st => (
+          <button key={st.id} className={`subtab ${subtab === st.id ? 'active' : ''}`} onClick={() => setSubtab(st.id)}>
+            {st.label}
+          </button>
+        ))}
       </div>
+
+      {subtab === 'habitos' ? (
+        <>
+          <div className="page-header">
+            <h2>{t(lang,'hab.title')}</h2>
+            <p>{t(lang,'hab.sub')}</p>
+          </div>
 
       <div className="grid-3" style={{ marginBottom: 20 }}>
         <div className="card">
@@ -287,6 +305,10 @@ export default function Habitos({ data, update, lang = 'pt' }) {
           {t(lang,'hab.legend')}
         </div>
       </div>
+        </>
+      ) : (
+        <SaudeSection data={data} update={update} lang={lang} />
+      )}
     </>
   )
 }
