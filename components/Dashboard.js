@@ -115,7 +115,8 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
   const investimentosValorAtual = investimentosCalc.reduce((s, c) => s + c.valorAtual, 0)
   const totalInvestido = investimentos.reduce((s, i) => s + moneyNumber(i.valorInvestido), 0)
   const aporteMensalPlanejado = investimentos.reduce((s, i) => s + moneyNumber(i.aporteMensal), 0)
-  const patrimonioTotal = saldoAtual + investimentosValorAtual - contasAPagar
+  const saldoMensal = receitasPrevistasMes - despesasPrevistasMes
+  const patrimonioTotal = saldoMensal + investimentosValorAtual
 
   const habitosHoje = data.habitos[todayKey] || {}
   const habitosFeitos = habitosLista.filter(h => habitosHoje[h]).length

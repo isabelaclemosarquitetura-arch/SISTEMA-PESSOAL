@@ -44,6 +44,52 @@ export default function Metas({ data, update, lang = 'pt' }) {
   const updateMeta = (id, field, value) =>
     update('metas', metas.map(m => m.id === id ? { ...m, [field]: value } : m))
 
+  const [novoEtapaTexto, setNovoEtapaTexto] = useState({})
+
+  const addEtapa = (goalId, textoEtapa) => {
+    const txt = textoEtapa.trim()
+    if (!txt) return
+    const goal = metas.find(g => g.id === goalId)
+    if (!goal) return
+    const etapas = Array.isArray(goal.etapas) ? goal.etapas : []
+    const newEtapa = { id: Date.now() + Math.random().toString(), texto: txt, concluida: false }
+    const novasEtapas = [...etapas, newEtapa]
+    
+    const concluidaCount = novasEtapas.filter(e => e.concluida).length
+    const novoProgresso = Math.round((concluidaCount / novasEtapas.length) * 100)
+    const newStatus = novoProgresso === 100 ? 'Concluída' : (goal.status === 'Concluída' ? 'Em andamento' : goal.status)
+    
+    update('metas', metas.map(g => g.id === goalId ? { ...g, etapas: novasEtapas, progresso: novoProgresso, status: newStatus } : g))
+    setNovoEtapaTexto({ ...novoEtapaTexto, [goalId]: '' })
+  }
+
+  const toggleEtapa = (goalId, etapaId) => {
+    const goal = metas.find(g => g.id === goalId)
+    if (!goal) return
+    const etapas = Array.isArray(goal.etapas) ? goal.etapas : []
+    const novasEtapas = etapas.map(e => e.id === etapaId ? { ...e, concluida: !e.concluida } : e)
+    
+    const concluidaCount = novasEtapas.filter(e => e.concluida).length
+    const novoProgresso = Math.round((concluidaCount / novasEtapas.length) * 100)
+    const newStatus = novoProgresso === 100 ? 'Concluída' : (goal.status === 'Concluída' ? 'Em andamento' : goal.status)
+    
+    update('metas', metas.map(g => g.id === goalId ? { ...g, etapas: novasEtapas, progresso: novoProgresso, status: newStatus } : g))
+  }
+
+  const deleteEtapa = (goalId, etapaId) => {
+    const goal = metas.find(g => g.id === goalId)
+    if (!goal) return
+    const etapas = Array.isArray(goal.etapas) ? goal.etapas : []
+    const novasEtapas = etapas.filter(e => e.id !== etapaId)
+    
+    const novoProgresso = novasEtapas.length > 0
+      ? Math.round((novasEtapas.filter(e => e.concluida).length / novasEtapas.length) * 100)
+      : 0
+    const newStatus = novasEtapas.length > 0 && novoProgresso === 100 ? 'Concluída' : (goal.status === 'Concluída' ? 'Em andamento' : goal.status)
+    
+    update('metas', metas.map(g => g.id === goalId ? { ...g, etapas: novasEtapas, progresso: novasEtapas.length > 0 ? novoProgresso : 0, status: newStatus } : g))
+  }
+
   const addMeta = () => {
     const area = novaArea.trim()
     if (!area) return
@@ -183,15 +229,93 @@ export default function Metas({ data, update, lang = 'pt' }) {
                     </div>
                     <div className="form-group">
                       <label>{t(lang,'met.progress')} ({pct}%)</label>
-                      <input
-                        type="range" min="0" max="100" value={pct}
-                        onChange={e => updateMeta(m.id, 'progresso', parseInt(e.target.value))}
-                        style={{ width: '100%', accentColor: 'var(--accent)' }}
-                      />
+                      {(() => {
+                        const temEtapas = Array.isArray(m.etapas) && m.etapas.length > 0
+                        return (
+                          <>
+                            <input
+                              type="range" min="0" max="100" value={pct}
+                              onChange={e => !temEtapas && updateMeta(m.id, 'progresso', parseInt(e.target.value))}
+                              disabled={temEtapas}
+                              style={{ width: '100%', accentColor: 'var(--accent)', cursor: temEtapas ? 'not-allowed' : 'pointer' }}
+                            />
+                            {temEtapas && (
+                              <span style={{ fontSize: 11, color: 'var(--green)', display: 'block', marginTop: 4 }}>
+                                ✓ {t(lang, 'met.etapasAuto')}
+                              </span>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
-                    <div className="form-group">
-                      <label>{t(lang,'met.actions')}</label>
-                      <input type="text" value={m.acoes} onChange={e => updateMeta(m.id, 'acoes', e.target.value)} placeholder={t(lang,'met.actionsPh')} />
+                    <div className="form-group" style={{ gridColumn: '1/-1' }}>
+                      <label>{t(lang, 'met.etapas')}</label>
+                      <div className="meta-etapas-box" style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 14 }}>
+                        {/* Checklist de Etapas */}
+                        {(!m.etapas || m.etapas.length === 0) ? (
+                          <div className="muted-small" style={{ marginBottom: 12 }}>
+                            {t(lang, 'met.etapasEmpty')}
+                          </div>
+                        ) : (
+                          <div className="meta-etapas-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                            {m.etapas.map(etapa => (
+                              <div key={etapa.id} className="meta-etapa-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '4px 0' }}>
+                                <label className="check-item" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1, minWidth: 0 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!etapa.concluida}
+                                    onChange={() => toggleEtapa(m.id, etapa.id)}
+                                  />
+                                  <span style={{
+                                    fontSize: 13,
+                                    textDecoration: etapa.concluida ? 'line-through' : 'none',
+                                    color: etapa.concluida ? 'var(--text-muted)' : 'var(--text)',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {etapa.texto}
+                                  </span>
+                                </label>
+                                <button
+                                  type="button"
+                                  className="btn-compras-delete"
+                                  onClick={() => deleteEtapa(m.id, etapa.id)}
+                                  title={lang === 'en' ? 'Delete' : 'Excluir'}
+                                  style={{ opacity: 0.5, border: 'none', background: 'transparent', cursor: 'pointer' }}
+                                >
+                                  ❌
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Formulário para adicionar nova etapa */}
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input
+                            type="text"
+                            placeholder={t(lang, 'met.etapasPh')}
+                            value={novoEtapaTexto[m.id] || ''}
+                            onChange={e => setNovoEtapaTexto({ ...novoEtapaTexto, [m.id]: e.target.value })}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                addEtapa(m.id, novoEtapaTexto[m.id] || '')
+                              }
+                            }}
+                            style={{ flex: 1, height: 32, padding: '4px 10px', fontSize: 12, borderRadius: 'var(--radius-sm)' }}
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => addEtapa(m.id, novoEtapaTexto[m.id] || '')}
+                            style={{ height: 32, fontSize: 11 }}
+                          >
+                            {t(lang, 'met.etapasAdd')}
+                          </button>
+                        </div>
+                      </div>
                     </div>
                     <div className="form-group" style={{ gridColumn: '1/-1' }}>
                       <label>{t(lang,'met.result')}</label>
