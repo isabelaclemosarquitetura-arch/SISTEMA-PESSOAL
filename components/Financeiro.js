@@ -5,12 +5,14 @@ import FinanceiroReceber from './FinanceiroReceber'
 import FinanceiroInvestimentos from './FinanceiroInvestimentos'
 import FinanceiroCartoes from './FinanceiroCartoes'
 import FinanceiroRelatorio from './FinanceiroRelatorio'
+import FinanceiroListaCompras from './FinanceiroListaCompras'
 
 const SUBTAB_IDS = [
   { id: 'lancamentos',   key: 'fin.transactions'  },
   { id: 'receber',       key: 'fin.toReceive'      },
   { id: 'investimentos', key: 'fin.investments'    },
   { id: 'cartoes',       key: 'fin.cards'          },
+  { id: 'compras',       key: 'fin.compras'        },
   { id: 'relatorio',     key: 'fin.report'         },
 ]
 
@@ -30,6 +32,7 @@ export default function Financeiro({ data, update, lang = 'pt' }) {
       {sub === 'receber'       && <FinanceiroReceber        data={data} update={update} lang={lang} />}
       {sub === 'investimentos' && <FinanceiroInvestimentos  data={data} update={update} lang={lang} />}
       {sub === 'cartoes'       && <FinanceiroCartoes        data={data} update={update} lang={lang} />}
+      {sub === 'compras'       && <FinanceiroListaCompras    data={data} update={update} lang={lang} />}
       {sub === 'relatorio'     && <FinanceiroRelatorio      data={data} lang={lang} />}
     </>
   )

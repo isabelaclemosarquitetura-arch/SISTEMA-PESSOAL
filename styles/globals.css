@@ -2462,3 +2462,654 @@ kbd {
   background: #181824;
 }
 
+/* ── BEM-ESTAR MENTAL E FÍSICO ── */
+.bem-estar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.wellness-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.quote-card {
+  border-left: 4px solid var(--accent);
+  background: linear-gradient(95deg, rgba(201, 169, 110, 0.05) 0%, var(--white) 100%);
+  text-align: center;
+}
+
+.quote-header {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+.quote-body {
+  font-size: 16px;
+  font-style: italic;
+  color: var(--text);
+  line-height: 1.6;
+  font-family: Georgia, serif;
+}
+
+.wellness-main-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 900px) {
+  .wellness-main-grid {
+    grid-template-columns: 1fr 1.2fr;
+  }
+}
+
+.wellness-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wellness-feedback-toast {
+  background: rgba(45, 146, 82, 0.08);
+  border: 1px solid rgba(45, 146, 82, 0.2);
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+  animation: slideIn 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.wellness-checklist-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wellness-check-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  background: var(--bg);
+  transition: all 0.2s ease;
+}
+
+.wellness-check-row:hover {
+  border-color: var(--accent);
+  background: var(--white);
+  transform: translateY(-1px);
+}
+
+.wellness-check-row.completed {
+  border-color: rgba(45, 146, 82, 0.3);
+  background: rgba(45, 146, 82, 0.02);
+}
+
+.wellness-checkbox-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  width: 100%;
+}
+
+.wellness-checkbox-container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.wellness-checkbox-checkmark {
+  position: relative;
+  top: 2px;
+  height: 18px;
+  width: 18px;
+  background-color: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.wellness-checkbox-container:hover input ~ .wellness-checkbox-checkmark {
+  border-color: var(--accent);
+}
+
+.wellness-checkbox-container input:checked ~ .wellness-checkbox-checkmark {
+  background-color: var(--green);
+  border-color: var(--green);
+}
+
+.wellness-checkbox-checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.wellness-checkbox-container input:checked ~ .wellness-checkbox-checkmark:after {
+  display: block;
+}
+
+.wellness-checkbox-container .wellness-checkbox-checkmark:after {
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.wellness-check-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wellness-check-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.wellness-check-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.wellness-checkbox-container input:checked ~ .wellness-check-text .wellness-check-label {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+/* Diário */
+.mood-selector-container {
+  margin-bottom: 16px;
+}
+
+.mood-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.mood-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mood-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.mood-btn:hover {
+  border-color: var(--accent);
+  background: var(--white);
+}
+
+.mood-btn.active {
+  border-color: var(--accent);
+  background: rgba(201, 169, 110, 0.08);
+  box-shadow: 0 0 0 2px rgba(201, 169, 110, 0.15);
+}
+
+.mood-emoji {
+  font-size: 18px;
+}
+
+.mood-btn-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.journal-textarea {
+  width: 100%;
+  min-height: 120px;
+  max-height: 250px;
+  padding: 12px;
+  font-size: 13px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color 0.2s ease;
+}
+
+.journal-textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.diario-saved-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--green);
+  animation: fadeIn 0.3s ease;
+}
+
+.journal-history-section {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.journal-history-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+.journal-empty-history {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 10px 0;
+}
+
+.journal-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.journal-history-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+}
+
+.journal-history-item:hover {
+  border-color: var(--accent);
+}
+
+.journal-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 6px;
+}
+
+.journal-history-date {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.journal-history-mood {
+  font-size: 16px;
+}
+
+.journal-history-text {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Dark mode overrides para bem estar */
+[data-theme="dark"] .wellness-card {
+  background: #181824;
+}
+
+[data-theme="dark"] .quote-card {
+  background: linear-gradient(95deg, rgba(201, 169, 110, 0.03) 0%, #181824 100%);
+}
+
+[data-theme="dark"] .wellness-check-row {
+  background: #14141e;
+}
+
+[data-theme="dark"] .wellness-check-row:hover {
+  background: #1b1b2a;
+}
+
+[data-theme="dark"] .wellness-check-row.completed {
+  background: rgba(45, 146, 82, 0.05);
+}
+
+[data-theme="dark"] .mood-btn {
+  background: #14141e;
+}
+
+[data-theme="dark"] .mood-btn:hover {
+  background: #1b1b2a;
+}
+
+[data-theme="dark"] .mood-btn.active {
+  background: rgba(201, 169, 110, 0.05);
+}
+
+[data-theme="dark"] .journal-textarea {
+  background: #14141e;
+}
+
+[data-theme="dark"] .journal-history-item {
+  background: #14141e;
+}
+
+[data-theme="dark"] .journal-history-item:hover {
+  background: #181828;
+}
+
+
+/* ── LISTA DE COMPRAS ── */
+.compras-container {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.compras-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .compras-form {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+  }
+}
+
+.flex-3 { flex: 3; }
+.flex-1 { flex: 1; }
+
+.compras-input, .compras-select {
+  width: 100%;
+  height: 38px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color 0.2s ease;
+}
+
+.compras-input:focus, .compras-select:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.empty-compras-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 20px;
+  text-align: center;
+  gap: 12px;
+  border: 1px dashed var(--border);
+  background: transparent;
+}
+
+.empty-compras-icon {
+  font-size: 40px;
+  opacity: 0.3;
+}
+
+.empty-compras-state p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.compras-lists-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.compras-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.compras-items-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 768px) {
+  .compras-items-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.compras-item-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.01);
+  position: relative;
+}
+
+.compras-item-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+}
+
+.compras-item-card.bought {
+  background: rgba(45, 146, 82, 0.01);
+  border-color: rgba(45, 146, 82, 0.15);
+  opacity: 0.7;
+}
+
+.compras-check-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.compras-check-label input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.compras-custom-check {
+  height: 18px;
+  width: 18px;
+  background-color: var(--white);
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.compras-check-label:hover input ~ .compras-custom-check {
+  border-color: var(--accent);
+}
+
+.compras-check-label input:checked ~ .compras-custom-check {
+  background-color: var(--green);
+  border-color: var(--green);
+}
+
+.compras-custom-check:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.compras-check-label input:checked ~ .compras-custom-check:after {
+  display: block;
+}
+
+.compras-check-label .compras-custom-check:after {
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.compras-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.compras-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compras-check-label input:checked ~ .compras-item-details .compras-item-name {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.compras-item-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.compras-meta-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.compras-meta-badge.qty {
+  color: var(--accent-dark);
+  background: rgba(201, 169, 110, 0.08);
+  border-color: rgba(201, 169, 110, 0.15);
+}
+
+.compras-meta-badge.price {
+  color: var(--blue);
+  background: rgba(61, 110, 170, 0.06);
+  border-color: rgba(61, 110, 170, 0.15);
+}
+
+.compras-item-card.bought .compras-meta-badge.price {
+  color: var(--green);
+  background: rgba(45, 146, 82, 0.05);
+  border-color: rgba(45, 146, 82, 0.12);
+}
+
+.btn-compras-delete {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 12px;
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.btn-compras-delete:hover {
+  opacity: 1;
+}
+
+.compras-list-empty-msg {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 10px 0;
+}
+
+/* Dark mode overrides para compras */
+[data-theme="dark"] .compras-input, [data-theme="dark"] .compras-select {
+  background: #14141e;
+}
+
+[data-theme="dark"] .compras-item-card {
+  background: #181824;
+}
+
+[data-theme="dark"] .compras-item-card:hover {
+  border-color: var(--accent);
+}
+
+[data-theme="dark"] .compras-item-card.bought {
+  background: rgba(45, 146, 82, 0.03);
+}
+
+[data-theme="dark"] .compras-meta-badge {
+  background: #14141e;
+}
+
+

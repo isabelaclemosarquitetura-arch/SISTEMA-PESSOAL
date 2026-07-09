@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { t } from '../lib/i18n'
 
 // ─── DADOS CIENTÍFICOS ──────────────────────────────────────────────────────
 // Fontes: NIAAA, WHO, Hepatology, Alcohol and Alcoholism, New England Journal
@@ -17,7 +18,7 @@ const MARCOS = [
     beneficios: [
       'O álcool é completamente eliminado da corrente sanguínea.',
       'O fígado começa a metabolizar a gordura acumulada pelo consumo.',
-      'Os rins passam a excretar líquidos normalmente, melhorando a hidratação.',
+      'Os rins começam a eliminar o excesso de líquidos, dando início à redução da retenção e do inchaço.',
       'A pressão arterial inicia uma queda gradual.',
     ],
     fonte: 'NIAAA; Neuropharmacology, 2018',
@@ -45,7 +46,7 @@ const MARCOS = [
     beneficios: [
       'A névoa mental ("brain fog") causada pelo álcool começa a dissipar.',
       'Menos fadiga ao acordar.',
-      'A hidratação celular se normaliza.',
+      'O equilíbrio hídrico se reestabelece, reduzindo o inchaço visível no rosto e olhos.',
       'Primeiras melhoras no humor relatadas por grande parte das pessoas.',
     ],
     fonte: 'Alcoholism: Clinical and Experimental Research, 2017',
@@ -59,8 +60,8 @@ const MARCOS = [
     beneficios: [
       'Melhora evidente na digestão — o álcool irrita a mucosa gástrica.',
       'Níveis de energia mais estáveis ao longo do dia.',
-      'Melhora da concentração e da memória de curto prazo.',
-      'A pele começa a parecer mais hidratada e saudável.',
+      'Melhora acentuada da retenção de líquidos: redução visível de inchaços pelo corpo.',
+      'A pele começa a parecer muito mais hidratada, viçosa e menos avermelhada.',
       'O sistema imunológico começa a se fortalecer.',
     ],
     fonte: 'BMJ, 2018; Alcohol Research & Health, 2010',
@@ -102,11 +103,10 @@ const MARCOS = [
     titulo: 'Renovação orgânica',
     beneficios: [
       'Recuperação progressiva e mensurável do fígado.',
-      'Pele mais hidratada, luminosa e com menos vermelhidão.',
-      'Sistema imunológico significativamente mais eficiente.',
-      'Melhor qualidade do sono sustentada.',
-      'Redução do risco de infecções oportunistas.',
-      'Estabilidade emocional mais consistente.',
+      'Eliminação do inchaço inflamatório crônico e estabilização do peso hídrico corporal.',
+      'Pele mais hidratada, luminosa e com elasticidade recuperada.',
+      'Sistema imunológico significativamente mais eficiente e sono profundo sustentado.',
+      'Estabilidade emocional e clareza mental mais consistentes.',
     ],
     fonte: 'NIAAA; Journal of Hepatology, 2016; Alcohol Research, 2020',
   },
@@ -619,44 +619,291 @@ function TimelineRecuperacao({ totalDias, activeMarco, setActiveMarco }) {
   )
 }
 
+// ─── COMPONENTE: Bem-Estar Mental & Físico ────────────────────────────────────
+const FORCA_QUOTES = {
+  pt: [
+    "Respire. Vá devagar. Você não precisa dar conta de tudo hoje. Só precisa dar o próximo passo. 🌿",
+    "Sua mente mente quando diz que você não é capaz. Acolha suas fraquezas, mas confie na sua força. 💪",
+    "Sentir-se sobrecarregado não diminui sua resiliência. Descanse, mas não desista de si mesmo. 🌟",
+    "Cada dia sem desistir é uma vitória silenciosa contra a escuridão. Tenha orgulho do seu esforço. ❤️",
+    "Você é muito maior do que a ansiedade que está sentindo agora. Isso também vai passar. ✨",
+    "Não compare seu bastidor com o palco dos outros. Seu progresso, mesmo que lento, é legítimo. 🚶",
+    "Você merece a mesma paciência e compaixão que distribui aos outros. Seja gentil com você hoje. 🌻",
+    "Pequenos passos diários salvam vidas. Comemore até a menor das tarefas que conseguiu fazer. 🏆"
+  ],
+  en: [
+    "Breathe. Go slow. You don't have to carry it all today. Just take the next step. 🌿",
+    "Your mind lies when it says you aren't capable. Accept your weaknesses, but trust your strength. 💪",
+    "Feeling overwhelmed doesn't lessen your resilience. Rest, but don't give up on yourself. 🌟",
+    "Every day you don't give up is a silent victory over the darkness. Be proud of your effort. ❤️",
+    "You are much bigger than the anxiety you are feeling right now. This too shall pass. ✨",
+    "Don't compare your behind-the-scenes to everyone else's highlight reel. Your progress, no matter how slow, is real. 🚶",
+    "You deserve the same patience and compassion you extend to others. Be gentle with yourself today. 🌻",
+    "Small daily steps save lives. Celebrate even the smallest task you managed to do. 🏆"
+  ]
+}
+
+const MOODS = [
+  { val: 1, emoji: '😢', text: { pt: 'Muito difícil', en: 'Very hard' } },
+  { val: 2, emoji: '😕', text: { pt: 'Difícil', en: 'Hard' } },
+  { val: 3, emoji: '😐', text: { pt: 'Neutro', en: 'Neutral' } },
+  { val: 4, emoji: '🙂', text: { pt: 'Bem', en: 'Good' } },
+  { val: 5, emoji: '🌟', text: { pt: 'Excelente', en: 'Excellent' } },
+]
+
+function BemEstarPanel({ data, update, lang }) {
+  const [feedbackMsg, setFeedbackMsg] = useState('')
+  const [diarioSalvoMsg, setDiarioSalvoMsg] = useState('')
+  
+  const hojeStr = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD local
+  const checklistHoje = data.bemEstarChecklist?.[hojeStr] || {
+    check1: false,
+    check2: false,
+    check3: false,
+    check4: false,
+    check5: false,
+    check6: false,
+  }
+
+  const diarioHoje = data.diarioMental?.[hojeStr] || { mood: 3, text: '' }
+  const [diarioText, setDiarioText] = useState(diarioHoje.text || '')
+  const [diarioMood, setDiarioMood] = useState(diarioHoje.mood || 3)
+
+  useEffect(() => {
+    setDiarioText(diarioHoje.text || '')
+    setDiarioMood(diarioHoje.mood || 3)
+  }, [diarioHoje.text, diarioHoje.mood])
+
+  const quoteIndex = new Date().getDate() % FORCA_QUOTES[lang].length
+  const quote = FORCA_QUOTES[lang][quoteIndex]
+
+  const toggleCheck = (id) => {
+    const nextVal = !checklistHoje[id]
+    const updatedChecklist = {
+      ...(data.bemEstarChecklist || {}),
+      [hojeStr]: {
+        ...checklistHoje,
+        [id]: nextVal
+      }
+    }
+    update('bemEstarChecklist', updatedChecklist)
+
+    if (nextVal) {
+      const feedbackOptions = lang === 'en' ? [
+        "Proud of you! 🌟",
+        "One step at a time! 🌿",
+        "Every little thing counts! ✨",
+        "Self-care is a victory! ❤️",
+        "You are your priority! 🧠"
+      ] : [
+        "Que orgulho de você! 🌟",
+        "Um pequeno passo de cada vez! 🌿",
+        "Cada pequena ação é uma vitória! ✨",
+        "Você está se cuidando, isso é tudo! ❤️",
+        "Você é sua maior prioridade! 🧠"
+      ]
+      const rand = Math.floor(Math.random() * feedbackOptions.length)
+      setFeedbackMsg(feedbackOptions[rand])
+      const tId = setTimeout(() => setFeedbackMsg(''), 3000)
+      return () => clearTimeout(tId)
+    }
+  }
+
+  const salvarDiario = () => {
+    const updatedDiario = {
+      ...(data.diarioMental || {}),
+      [hojeStr]: {
+        mood: diarioMood,
+        text: diarioText,
+        timestamp: new Date().toISOString()
+      }
+    }
+    update('diarioMental', updatedDiario)
+    setDiarioSalvoMsg(t(lang, 'saude.diario.saved'))
+    const tId = setTimeout(() => setDiarioSalvoMsg(''), 3000)
+    return () => clearTimeout(tId)
+  }
+
+  // Histórico
+  const entries = Object.entries(data.diarioMental || {})
+    .filter(([_, item]) => item.text && item.text.trim())
+    .sort(([a], [b]) => b.localeCompare(a))
+
+  return (
+    <div className="bem-estar-panel">
+      {/* Pílula de Força / Frase do Dia */}
+      <div className="wellness-card quote-card">
+        <div className="quote-header">💬 {t(lang, 'saude.bemEstar.motivational')}</div>
+        <p className="quote-body">"{quote}"</p>
+      </div>
+
+      <div className="wellness-main-grid">
+        {/* Checklist */}
+        <div className="wellness-card checklist-card">
+          <div className="wellness-card-title">🌸 {t(lang, 'saude.bemEstar.checklist')}</div>
+          {feedbackMsg && (
+            <div className="wellness-feedback-toast">
+              {feedbackMsg}
+            </div>
+          )}
+          <div className="wellness-checklist-items">
+            {[1, 2, 3, 4, 5, 6].map(num => {
+              const key = `check${num}`
+              return (
+                <div key={key} className={`wellness-check-row ${checklistHoje[key] ? 'completed' : ''}`}>
+                  <label className="wellness-checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={!!checklistHoje[key]}
+                      onChange={() => toggleCheck(key)}
+                    />
+                    <span className="wellness-checkbox-checkmark"></span>
+                    <div className="wellness-check-text">
+                      <div className="wellness-check-label">{t(lang, `saude.bemEstar.check${num}`)}</div>
+                      <div className="wellness-check-desc">{t(lang, `saude.bemEstar.check${num}.sub`)}</div>
+                    </div>
+                  </label>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Diário */}
+        <div className="wellness-card journal-card">
+          <div className="wellness-card-title">📝 {t(lang, 'saude.diario.title')}</div>
+          
+          <div className="mood-selector-container">
+            <div className="mood-label">{t(lang, 'saude.diario.mood')}</div>
+            <div className="mood-buttons">
+              {MOODS.map(m => (
+                <button
+                  key={m.val}
+                  type="button"
+                  className={`mood-btn ${diarioMood === m.val ? 'active' : ''}`}
+                  onClick={() => setDiarioMood(m.val)}
+                  title={m.text[lang]}
+                >
+                  <span className="mood-emoji">{m.emoji}</span>
+                  <span className="mood-btn-text">{m.text[lang]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <textarea
+            className="journal-textarea"
+            placeholder={t(lang, 'saude.diario.placeholder')}
+            value={diarioText}
+            onChange={e => setDiarioText(e.target.value)}
+          />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+            <button className="btn btn-primary" onClick={salvarDiario}>
+              💾 {t(lang, 'saude.diario.save')}
+            </button>
+            {diarioSalvoMsg && (
+              <span className="diario-saved-badge">{diarioSalvoMsg}</span>
+            )}
+          </div>
+
+          {/* Histórico do Diário */}
+          <div className="journal-history-section">
+            <div className="journal-history-title">📚 {t(lang, 'saude.diario.history')}</div>
+            {entries.length === 0 ? (
+              <p className="journal-empty-history">{t(lang, 'saude.diario.noEntries')}</p>
+            ) : (
+              <div className="journal-history-list">
+                {entries.map(([dateKey, item]) => {
+                  const moodObj = MOODS.find(m => m.val === item.mood) || MOODS[2]
+                  const formattedDate = new Date(dateKey + 'T00:00:00').toLocaleDateString(
+                    lang === 'en' ? 'en-US' : 'pt-BR',
+                    { day: '2-digit', month: 'long', year: 'numeric' }
+                  )
+                  return (
+                    <div key={dateKey} className="journal-history-item">
+                      <div className="journal-history-header">
+                        <span className="journal-history-date">{formattedDate}</span>
+                        <span className="journal-history-mood" title={moodObj.text[lang]}>
+                          {moodObj.emoji}
+                        </span>
+                      </div>
+                      <p className="journal-history-text">{item.text}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── COMPONENTE PRINCIPAL: Seção Saúde ───────────────────────────────────────
-export default function SaudeSection({ data, update }) {
+export default function SaudeSection({ data, update, lang = 'pt' }) {
+  const [sub, setSub] = useState('abstinencia') // 'abstinencia' ou 'bemestar'
+
+  const subtabs = [
+    { id: 'abstinencia', label: lang === 'en' ? 'Physical & Sobriety' : 'Físico & Abstinência' },
+    { id: 'bemestar', label: lang === 'en' ? 'Mind & Self-Care' : 'Mente & Autocuidado' }
+  ]
+
   return (
     <div className="saude-section">
       {/* Header da seção */}
       <div className="saude-section-header">
         <div className="saude-section-header-icon">🏥</div>
         <div>
-          <div className="saude-section-titulo">Saúde &amp; Qualidade de Vida</div>
+          <div className="saude-section-titulo">{t(lang, 'saude.title')}</div>
           <div className="saude-section-sub">
-            Acompanhe hábitos essenciais para o seu bem-estar
+            {t(lang, 'saude.sub')}
           </div>
         </div>
       </div>
 
-      {/* Grid de cards de saúde — extensível */}
-      <div className="saude-grid">
-        <SemAlcoolCard data={data} update={update} />
-
-        {/* Espaços reservados para futuros rastreadores */}
-        <div className="saude-card saude-em-breve">
-          <div className="saude-card-icon">🚬</div>
-          <div className="saude-card-title">Sem Cigarro</div>
-          <div className="saude-card-sub">Em breve</div>
-        </div>
-
-        <div className="saude-card saude-em-breve">
-          <div className="saude-card-icon">🏃</div>
-          <div className="saude-card-title">Exercícios Físicos</div>
-          <div className="saude-card-sub">Em breve</div>
-        </div>
-
-        <div className="saude-card saude-em-breve">
-          <div className="saude-card-icon">💧</div>
-          <div className="saude-card-title">Consumo de Água</div>
-          <div className="saude-card-sub">Em breve</div>
-        </div>
+      {/* Navegação interna por sub-abas */}
+      <div className="subtab-nav" style={{ marginTop: 0, marginBottom: 10 }}>
+        {subtabs.map(st => (
+          <button
+            key={st.id}
+            className={`subtab ${sub === st.id ? 'active' : ''}`}
+            onClick={() => setSub(st.id)}
+          >
+            {st.label}
+          </button>
+        ))}
       </div>
+
+      {sub === 'abstinencia' && (
+        <div className="saude-grid">
+          <SemAlcoolCard data={data} update={update} />
+
+          {/* Espaços reservados para futuros rastreadores */}
+          <div className="saude-card saude-em-breve">
+            <div className="saude-card-icon">🚬</div>
+            <div className="saude-card-title">Sem Cigarro</div>
+            <div className="saude-card-sub">Em breve</div>
+          </div>
+
+          <div className="saude-card saude-em-breve">
+            <div className="saude-card-icon">🏃</div>
+            <div className="saude-card-title">Exercícios Físicos</div>
+            <div className="saude-card-sub">Em breve</div>
+          </div>
+
+          <div className="saude-card saude-em-breve">
+            <div className="saude-card-icon">💧</div>
+            <div className="saude-card-title">Consumo de Água</div>
+            <div className="saude-card-sub">Em breve</div>
+          </div>
+        </div>
+      )}
+
+      {sub === 'bemestar' && (
+        <BemEstarPanel data={data} update={update} lang={lang} />
+      )}
     </div>
   )
 }
