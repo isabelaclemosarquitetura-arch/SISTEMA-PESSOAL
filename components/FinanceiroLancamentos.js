@@ -157,21 +157,42 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
 
   const handleEdit = (l) => { setForm({ ...EMPTY_FORM, ...l, parcelado: false, qtdParcelas: '' }); setEditId(l.id); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const handleDelete = (l) => {
-    // Se pertence a um grupo de parcelas, perguntar se quer excluir todas
+    let idsToDelete = [l.id]
+    
     if (l._parcelaGrupoId) {
       const todas = window.confirm(`Excluir somente esta parcela (${l.parcela}) ou TODAS as parcelas do grupo?\n\nOK = Todas | Cancelar = Somente esta`)
       if (todas) {
-        update('financeiro', lancamentos.filter(x => x._parcelaGrupoId !== l._parcelaGrupoId))
-        showFeedback('Todas as parcelas excluídas.')
-        return
+        idsToDelete = lancamentos.filter(x => x._parcelaGrupoId === l._parcelaGrupoId).map(x => x.id)
       }
     } else if (l.recorrenciaGrupoId) {
       const futuros = window.confirm(t(lang, 'lanc.confirmRecurDelete'))
-      if (futuros) { update('financeiro', lancamentos.filter(x => !(x.recorrenciaGrupoId === l.recorrenciaGrupoId && x.vencimento >= l.vencimento))); showFeedback(t(lang, 'lanc.deletedFuture')); return }
+      if (futuros) { 
+        idsToDelete = lancamentos.filter(x => x.recorrenciaGrupoId === l.recorrenciaGrupoId && x.vencimento >= l.vencimento).map(x => x.id)
+      }
     } else {
       if (!window.confirm(`Excluir "${l.descricao}" (${fmt(moneyNumber(l.valor))})?`)) return
     }
-    update('financeiro', lancamentos.filter(x => x.id !== l.id)); showFeedback(t(lang, 'lanc.deleted'))
+
+    const novosLancamentos = lancamentos.filter(x => !idsToDelete.includes(x.id))
+    let payloadUpdate = { financeiro: novosLancamentos }
+    
+    // Se o lançamento estiver vinculado a um projeto, apaga também no projeto para não dar dessincronia
+    if (l._projetoId) {
+       const projetos = data.projetos || []
+       payloadUpdate.projetos = projetos.map(p => {
+          if (p.id === l._projetoId) {
+             return {
+                ...p,
+                recebimentos: (p.recebimentos || []).filter(r => !idsToDelete.includes(r.id)),
+                gastos: (p.gastos || []).filter(g => !idsToDelete.includes(g.id))
+             }
+          }
+          return p
+       })
+    }
+    
+    update(payloadUpdate)
+    showFeedback(idsToDelete.length > 1 ? 'Múltiplos lançamentos excluídos.' : t(lang, 'lanc.deleted'))
   }
   const handleDuplicate = (l) => { update('financeiro', [...lancamentos, { ...l, id: Date.now(), status: l.tipo === 'Receita' ? 'Prevista' : 'Pendente', pago: false, recorrente: false, recorrenciaGrupoId: '' }]); showFeedback(t(lang, 'lanc.duplicated')) }
 
@@ -420,7 +441,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
                       <span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span>
                     </label>
                   </td>
-                  <td className="table-actions">
+                  <td className="table-actions" style={{ whiteSpace: 'nowrap', display: 'flex', gap: '4px', alignItems: 'center' }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(l)}>{t(lang, 'lanc.edit')}</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => handleDuplicate(l)}>{t(lang, 'lanc.duplicate')}</button>
                     {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <button className="btn btn-ghost btn-sm" onClick={() => pararRecorrencia(l)}>{t(lang, 'lanc.stopRec')}</button>}

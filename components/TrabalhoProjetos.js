@@ -501,6 +501,17 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
     showFeedback('Marcado como recebido!')
   }
 
+  const excluirRecebimento = (r) => {
+    if (!window.confirm('Excluir este recebimento? O lançamento também será apagado do Financeiro Pessoal.')) return
+    const recs = (projeto.recebimentos || []).filter(x => x.id !== r.id)
+    const novoFinanceiro = (data.financeiro || []).filter(f => f.id !== r.id)
+    update({
+      projetos: projetos.map(p => p.id === projeto.id ? { ...p, recebimentos: recs } : p),
+      financeiro: novoFinanceiro
+    })
+    showFeedback('Recebimento excluído!')
+  }
+
   // ── Gastos ──
   const handleSaveGasto = () => {
     if (!gastoForm.descricao || !gastoForm.valor) { showFeedback('Preencha descrição e valor.'); return }
@@ -535,6 +546,17 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
 
     setGastoForm({ ...EMPTY_GASTO }); setEditGastoId(null); setShowGastoForm(false)
     showFeedback('Gasto salvo!')
+  }
+
+  const excluirGasto = (g) => {
+    if (!window.confirm('Excluir este gasto? O lançamento também será apagado do Financeiro Pessoal.')) return
+    const gastos = (projeto.gastos || []).filter(x => x.id !== g.id)
+    const novoFinanceiro = (data.financeiro || []).filter(f => f.id !== g.id)
+    update({
+      projetos: projetos.map(p => p.id === projeto.id ? { ...p, gastos: gastos } : p),
+      financeiro: novoFinanceiro
+    })
+    showFeedback('Gasto excluído!')
   }
 
   const SUBTABS_DETALHE = [
@@ -806,7 +828,7 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                             setRecForm({ ...EMPTY_RECEBIMENTO, ...r, valor: String(r.valor) })
                             setEditRecId(r.id); setShowRecForm(true)
                           }}>Editar</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => updateProjeto(projeto.id, 'recebimentos', (projeto.recebimentos || []).filter(x => x.id !== r.id))}>✕</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => excluirRecebimento(r)}>✕</button>
                         </td>
                       </tr>
                     ))}
@@ -894,7 +916,7 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                             setGastoForm({ ...EMPTY_GASTO, ...g, valor: String(g.valor) })
                             setEditGastoId(g.id); setShowGastoForm(true)
                           }}>Editar</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => updateProjeto(projeto.id, 'gastos', (projeto.gastos || []).filter(x => x.id !== g.id))}>✕</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => excluirGasto(g)}>✕</button>
                         </td>
                       </tr>
                     ))}
