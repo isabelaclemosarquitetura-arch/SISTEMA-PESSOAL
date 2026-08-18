@@ -396,7 +396,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
             <tbody>{lancMes.sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')).map(l => {
               const isSettled = (l.tipo === 'Despesa' && (l.status === 'Pago' || l.status === 'Pago automaticamente')) || (l.tipo === 'Receita' && l.status === 'Recebida')
               const isVencido = l.status === 'Vencido'
-              const valorColor = l.tipo === 'Receita' ? 'var(--green)' : 'var(--red)'
+              const valorColor = l.tipo === 'Receita' ? 'var(--green)' : (isVencido ? 'var(--red)' : 'inherit')
               return (
                 <tr key={l.id} className={isSettled ? 'row-settled' : isVencido ? 'row-overdue' : 'row-pending'}>
                   <td><span className={`badge ${l.tipo === 'Receita' ? 'badge-green' : 'badge-red'}`}>{l.tipo}</span></td>
@@ -424,7 +424,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
                     <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(l)}>{t(lang, 'lanc.edit')}</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => handleDuplicate(l)}>{t(lang, 'lanc.duplicate')}</button>
                     {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <button className="btn btn-ghost btn-sm" onClick={() => pararRecorrencia(l)}>{t(lang, 'lanc.stopRec')}</button>}
-                    <button className="btn btn-danger" onClick={() => handleDelete(l)}>{t(lang, 'lanc.delete')}</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(l)}>{t(lang, 'lanc.delete')}</button>
                   </td>
                 </tr>
               )
