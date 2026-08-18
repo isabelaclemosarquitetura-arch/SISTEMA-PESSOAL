@@ -120,6 +120,8 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
   }
 
   const handleDelete = (id) => {
+    const investimento = investimentos.find(i => i.id === id)
+    if (!window.confirm(`Excluir investimento "${investimento?.nome || ''}"?`)) return
     update('investimentos', investimentos.filter(i => i.id !== id))
     showFeedback(t(lang,'inv.deleted'))
   }

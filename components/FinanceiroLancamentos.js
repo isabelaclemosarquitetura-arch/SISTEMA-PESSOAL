@@ -4,7 +4,7 @@ import {
   MESES, CATEGORIAS_RECEITA, CATEGORIAS_DESPESA, FORMAS_PAGAMENTO, TIPOS_RECORRENCIA,
   fmt, moneyNumber, sugerirCategoria, hojeISO, mesDeISO, fmtDataBR, gerarParcelas,
   isDespesaPaga, isReceitaRecebida, isReceitaParcial, valorRecebidoLancamento,
-  valorPendenteLancamento, isDespesaVencida,
+  valorPendenteLancamento, isDespesaVencida, origemLancamento,
 } from '../lib/finance'
 
 const CARTOES_PADRAO = ['Nubank', 'Inter', 'Itaú', 'Santander', 'Caixa', 'Banco do Brasil', 'Outro']
@@ -43,6 +43,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const [showForm, setShowForm] = useState(false)
   const [showOrcamento, setShowOrcamento] = useState(false)
   const [feedback, setFeedback] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const lancamentos = data.financeiro || []
   const orcamentos = data.orcamentoCategoria || {}
@@ -56,9 +57,9 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const lancMesBase = lancamentos.filter(l => (l.mes || '').toLowerCase() === mesFiltro.toLowerCase())
   const lancMesCartao = cartaoFiltro === '' ? lancMesBase : cartaoFiltro === '__nocard__' ? lancMesBase.filter(l => !l.cartao) : lancMesBase.filter(l => l.cartao === cartaoFiltro)
   
-  const lancMesOrigem = origemFiltro === 'Todos' ? lancMesCartao : 
-                        origemFiltro === 'Trabalho' ? lancMesCartao.filter(l => l._projetoId || l.categoria === 'Recebimento Projeto' || l.categoria === 'Trabalho') : 
-                        lancMesCartao.filter(l => !(l._projetoId || l.categoria === 'Recebimento Projeto' || l.categoria === 'Trabalho'))
+  const lancMesOrigem = origemFiltro === 'Todos'
+    ? lancMesCartao
+    : lancMesCartao.filter(l => origemLancamento(l) === origemFiltro)
                         
   const lancMes = busca ? lancMesOrigem.filter(l => l.descricao?.toLowerCase().includes(busca.toLowerCase()) || l.categoria?.toLowerCase().includes(busca.toLowerCase())) : lancMesOrigem
 
@@ -130,11 +131,21 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
       return
     }
 
+    const projetoRelacionado = form.tipo === 'Receita' && form.projeto
+      ? (data.projetos || []).find(p => p.codigo === form.projeto)
+      : null
+
     const payload = {
       ...form,
       descricao: form.descricao.trim(),
       cartao: form.tipo === 'Despesa' && form.formaPagamento === 'Crédito' ? form.cartao : '',
       formaPagamento: form.tipo === 'Despesa' ? form.formaPagamento : '',
+      origem: projetoRelacionado ? 'Trabalho' : (form.origem || 'Pessoal'),
+      _projetoId: projetoRelacionado?.id || form._projetoId || '',
+      _projetoCodigo: projetoRelacionado?.codigo || form._projetoCodigo || '',
+      _projetoNome: projetoRelacionado?.nome || form._projetoNome || '',
+      _cliente: projetoRelacionado?.cliente || form._cliente || '',
+      _tipoProjeto: projetoRelacionado?.tipo || form._tipoProjeto || '',
     }
 
     if (editId !== null) {
@@ -186,21 +197,13 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   }
 
   const handleEdit = (l) => { setForm({ ...EMPTY_FORM, ...l, parcelado: false, qtdParcelas: '' }); setEditId(l.id); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-  const handleDelete = (l) => {
+  const handleDelete = (l, scope = 'single') => {
     let idsToDelete = [l.id]
     
-    if (l._parcelaGrupoId) {
-      const todas = window.confirm(`Excluir somente esta parcela (${l.parcela}) ou TODAS as parcelas do grupo?\n\nOK = Todas | Cancelar = Somente esta`)
-      if (todas) {
-        idsToDelete = lancamentos.filter(x => x._parcelaGrupoId === l._parcelaGrupoId).map(x => x.id)
-      }
-    } else if (l.recorrenciaGrupoId) {
-      const futuros = window.confirm(t(lang, 'lanc.confirmRecurDelete'))
-      if (futuros) { 
-        idsToDelete = lancamentos.filter(x => x.recorrenciaGrupoId === l.recorrenciaGrupoId && x.vencimento >= l.vencimento).map(x => x.id)
-      }
-    } else {
-      if (!window.confirm(`Excluir "${l.descricao}" (${fmt(moneyNumber(l.valor))})?`)) return
+    if (scope === 'parcel-group' && l._parcelaGrupoId) {
+      idsToDelete = lancamentos.filter(x => x._parcelaGrupoId === l._parcelaGrupoId).map(x => x.id)
+    } else if (scope === 'recurrence-future' && l.recorrenciaGrupoId) {
+      idsToDelete = lancamentos.filter(x => x.recorrenciaGrupoId === l.recorrenciaGrupoId && x.vencimento >= l.vencimento).map(x => x.id)
     }
 
     const novosLancamentos = lancamentos.filter(x => !idsToDelete.includes(x.id))
@@ -222,9 +225,26 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
     }
     
     update(payloadUpdate)
+    setDeleteTarget(null)
     showFeedback(idsToDelete.length > 1 ? 'Múltiplos lançamentos excluídos.' : t(lang, 'lanc.deleted'))
   }
-  const handleDuplicate = (l) => { update('financeiro', [...lancamentos, { ...l, id: Date.now(), status: l.tipo === 'Receita' ? 'Prevista' : 'Pendente', pago: false, recorrente: false, recorrenciaGrupoId: '' }]); showFeedback(t(lang, 'lanc.duplicated')) }
+  const handleDuplicate = (l) => {
+    const {
+      _projetoId, _projetoCodigo, _projetoNome, _cliente, _tipoProjeto,
+      valorRecebido, dataRecebimento, ...base
+    } = l
+    update('financeiro', [...lancamentos, {
+      ...base,
+      id: Date.now(),
+      status: l.tipo === 'Receita' ? 'Prevista' : 'Pendente',
+      pago: false,
+      recorrente: false,
+      recorrenciaGrupoId: '',
+      origem: 'Pessoal',
+      projeto: '',
+    }])
+    showFeedback(t(lang, 'lanc.duplicated'))
+  }
 
   const toggleStatus = (l) => {
     if (l.tipo === 'Despesa') {
@@ -281,6 +301,25 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
         </div>
       </div>
       {feedback && <div className="toast-inline">{feedback}</div>}
+      {deleteTarget && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <div className="card-title">Excluir lançamento</div>
+            <h3 style={{ margin: '0 0 8px' }}>{deleteTarget.descricao}</h3>
+            <p className="muted-small" style={{ marginBottom: 16 }}>{fmt(moneyNumber(deleteTarget.valor))} · {fmtDataBR(deleteTarget.vencimento)}</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <button className="btn btn-ghost" onClick={() => setDeleteTarget(null)}>Cancelar</button>
+              <button className="btn btn-danger" onClick={() => handleDelete(deleteTarget, 'single')}>Excluir somente este</button>
+              {deleteTarget._parcelaGrupoId && (
+                <button className="btn btn-danger" onClick={() => handleDelete(deleteTarget, 'parcel-group')}>Excluir todas as parcelas</button>
+              )}
+              {deleteTarget.recorrenciaGrupoId && (
+                <button className="btn btn-danger" onClick={() => handleDelete(deleteTarget, 'recurrence-future')}>Excluir esta e futuras</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {showOrcamento && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-title">{t(lang, 'lanc.budgetTitle')}</div>
@@ -484,7 +523,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
                       {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <span className="badge badge-blue">Recorrente</span>}
                       {l.pagamentoAutomatico && <span className="badge badge-blue">Auto</span>}
                       {(l.parcelado || l._parcelaGrupoId) && <span className="badge badge-gray">Parcelado</span>}
-                      {(l._projetoId || l.categoria === 'Recebimento Projeto' || l.categoria === 'Trabalho') && <span className="badge badge-gray" style={{ background: 'var(--blue)22', color: 'var(--blue)', borderColor: 'var(--blue)40' }}>💼 Trabalho</span>}
+                      {origemLancamento(l) === 'Trabalho' && <span className="badge badge-gray" style={{ background: 'var(--blue)22', color: 'var(--blue)', borderColor: 'var(--blue)40' }}>💼 Trabalho</span>}
                     </div>
                   </td>
                   <td style={{ fontWeight: 600, color: valorColor }}>
@@ -503,7 +542,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
                     <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(l)}>{t(lang, 'lanc.edit')}</button>
                     <button className="btn btn-ghost btn-sm" onClick={() => handleDuplicate(l)}>{t(lang, 'lanc.duplicate')}</button>
                     {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <button className="btn btn-ghost btn-sm" onClick={() => pararRecorrencia(l)}>{t(lang, 'lanc.stopRec')}</button>}
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(l)}>{t(lang, 'lanc.delete')}</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => setDeleteTarget(l)}>{t(lang, 'lanc.delete')}</button>
                   </td>
                 </tr>
               )

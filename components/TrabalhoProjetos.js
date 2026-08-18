@@ -78,6 +78,7 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
   const [filtroStatus, setFiltroStatus] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
   const [busca, setBusca] = useState('')
+  const [projetoParaExcluir, setProjetoParaExcluir] = useState(null)
 
   const showFeedback = (msg) => { setFeedback(msg); setTimeout(() => setFeedback(''), 2500) }
 
@@ -117,6 +118,7 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
         projetos: projetos.map(p => p.id === editId ? projetoEditado : p),
         financeiro: (data.financeiro || []).map(l => l._projetoId === editId ? {
           ...l,
+          origem: 'Trabalho',
           descricao: l.tipo === 'Receita'
             ? `${projetoLabel}${l.parcela ? ` - Parcela ${l.parcela}` : ''}`
             : l.descricao,
@@ -147,7 +149,7 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
               descricao: `${codigo} - ${form.nome}${form.cliente ? ` (${form.cliente})` : ''}`,
               formaPagamento: form.formaPagamento, cartao: '',
               observacao: '', recorrente: false, recorrenciaGrupoId: '',
-              pagamentoAutomatico: false, _projetoId: projId, projeto: codigo,
+              pagamentoAutomatico: false, origem: 'Trabalho', _projetoId: projId, projeto: codigo,
               _projetoCodigo: codigo, _projetoNome: form.nome, _cliente: form.cliente, _tipoProjeto: form.tipo,
             }
             const parcelas = gerarParcelas({
@@ -179,7 +181,7 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
               mes: mesDeISO(form.vencimento),
               dataRecebimento: '',
               recorrente: false, recorrenciaGrupoId: '', formaPagamento: form.formaPagamento,
-              _projetoId: projId, projeto: codigo,
+              origem: 'Trabalho', _projetoId: projId, projeto: codigo,
               _projetoCodigo: codigo, _projetoNome: form.nome, _cliente: form.cliente, _tipoProjeto: form.tipo,
               valorOriginal: String(Number(form.valorContratado).toFixed(2)), valorRecebido: 0,
             }
@@ -211,9 +213,25 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
     setForm({ ...EMPTY_PROJETO }); setEditId(null); setView('list')
   }
 
-  const handleDeleteProjeto = (proj) => {
-    if (!window.confirm(`Excluir projeto "${proj.nome}" (${proj.codigo})?`)) return
-    update('projetos', projetos.filter(p => p.id !== proj.id))
+  const handleDeleteProjeto = (proj, removerLancamentos = false) => {
+    const financeiro = data.financeiro || []
+    const financeiroAtualizado = removerLancamentos
+      ? financeiro.filter(l => l._projetoId !== proj.id)
+      : financeiro.map(l => l._projetoId === proj.id ? {
+        ...l,
+        origem: 'Pessoal',
+        projeto: '',
+        _projetoId: '',
+        _projetoCodigo: '',
+        _projetoNome: '',
+        _cliente: '',
+        _tipoProjeto: '',
+      } : l)
+    update({
+      projetos: projetos.filter(p => p.id !== proj.id),
+      financeiro: financeiroAtualizado,
+    })
+    setProjetoParaExcluir(null)
     showFeedback('Projeto excluído.')
     if (projetoId === proj.id) { setProjetoId(null); setView('list') }
   }
@@ -293,12 +311,28 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
                     </div>
                     <div style={{ display: 'flex', gap: 6, marginLeft: 16 }} onClick={e => e.stopPropagation()}>
                       <button className="btn btn-ghost btn-sm" onClick={() => { abrirForm(proj) }}>Editar</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => handleDeleteProjeto(proj)}>Excluir</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => setProjetoParaExcluir(proj)}>Excluir</button>
                     </div>
                   </div>
                 </div>
               )
             })}
+          </div>
+        )}
+        {projetoParaExcluir && (
+          <div className="modal-overlay">
+            <div className="modal-box">
+              <div className="card-title">Excluir projeto</div>
+              <h3 style={{ margin: '0 0 8px' }}>{projetoParaExcluir.codigo} - {projetoParaExcluir.nome}</h3>
+              <p className="muted-small" style={{ marginBottom: 16 }}>
+                Existem {(data.financeiro || []).filter(l => l._projetoId === projetoParaExcluir.id).length} lançamento(s) financeiro(s) vinculados a este projeto.
+              </p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button className="btn btn-ghost" onClick={() => setProjetoParaExcluir(null)}>Cancelar</button>
+                <button className="btn btn-ghost" onClick={() => handleDeleteProjeto(projetoParaExcluir, false)}>Excluir só o projeto</button>
+                <button className="btn btn-danger" onClick={() => handleDeleteProjeto(projetoParaExcluir, true)}>Excluir projeto e lançamentos</button>
+              </div>
+            </div>
           </div>
         )}
       </>
@@ -479,7 +513,12 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
       : recForm.status === 'Parcial'
         ? Math.min(valorTotal, Number(recForm.valorRecebido) || 0)
         : 0
-    const recEditado = { ...recForm, id: recId, valor: valorTotal, valorRecebido }
+    if (recForm.status === 'Parcial' && valorRecebido <= 0) {
+      showFeedback('Informe o valor recebido parcialmente.')
+      return
+    }
+    const statusFinal = recForm.status === 'Parcial' && valorRecebido >= valorTotal ? 'Recebido' : recForm.status
+    const recEditado = { ...recForm, id: recId, valor: valorTotal, valorRecebido, status: statusFinal }
     const novoRecs = isEdit ? recs.map(r => r.id === recId ? recEditado : r) : [...recs, recEditado]
 
     const payloadFinanceiro = {
@@ -492,7 +531,7 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
       mes: mesDeISO(recEditado.vencimento || hojeISO()),
       dataRecebimento: recEditado.status === 'Recebido' ? (recEditado.dataPagamento || hojeISO()) : '',
       recorrente: false, recorrenciaGrupoId: '', formaPagamento: recEditado.formaPagamento,
-      _projetoId: projeto.id, projeto: projeto.codigo,
+      origem: 'Trabalho', _projetoId: projeto.id, projeto: projeto.codigo,
       _projetoCodigo: projeto.codigo, _projetoNome: projeto.nome, _cliente: projeto.cliente, _tipoProjeto: projeto.tipo,
       valorOriginal: String(recEditado.valor), valorRecebido,
     }
@@ -532,31 +571,16 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
   }
 
   const marcarComoRecebidoParcial = (rec) => {
-    const valor = Number(window.prompt('Valor recebido parcialmente:', ''))
-    if (!Number.isFinite(valor) || valor <= 0) { showFeedback('Informe um valor recebido válido.'); return }
-    const total = moneyNumber(rec.valor)
-    if (valor >= total) { marcarComoRecebido(rec); return }
-    const dataRecebimento = window.prompt('Data real do recebimento (AAAA-MM-DD):', hojeISO()) || hojeISO()
-    const recs = (projeto.recebimentos || []).map(r => r.id === rec.id ? {
-      ...r,
+    setRecForm({
+      ...EMPTY_RECEBIMENTO,
+      ...rec,
+      valor: String(rec.valor),
+      valorRecebido: rec.valorRecebido ? String(rec.valorRecebido) : '',
+      dataPagamento: rec.dataPagamento || hojeISO(),
       status: 'Parcial',
-      valorRecebido: valor,
-      dataPagamento: dataRecebimento,
-    } : r)
-
-    const novoFinanceiro = (data.financeiro || []).map(f => f.id === rec.id ? {
-      ...f,
-      status: 'Parcial',
-      valorOriginal: String(f.valorOriginal || f.valor),
-      valorRecebido: valor,
-      dataRecebimento,
-    } : f)
-
-    update({
-      projetos: projetos.map(p => p.id === projeto.id ? { ...p, recebimentos: recs } : p),
-      financeiro: novoFinanceiro
     })
-    showFeedback('Recebimento parcial registrado!')
+    setEditRecId(rec.id)
+    setShowRecForm(true)
   }
 
   const excluirRecebimento = (r) => {
@@ -587,7 +611,7 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
       vencimento: gastoEditado.data || hojeISO(), mes: mesDeISO(gastoEditado.data || hojeISO()),
       formaPagamento: gastoEditado.formaPagamento, cartao: '',
       recorrente: false, recorrenciaGrupoId: '', observacao: gastoEditado.observacao,
-      _projetoId: projeto.id, projeto: projeto.codigo,
+      origem: 'Trabalho', _projetoId: projeto.id, projeto: projeto.codigo,
       _projetoCodigo: projeto.codigo, _projetoNome: projeto.nome, _cliente: projeto.cliente, _tipoProjeto: projeto.tipo,
     }
 

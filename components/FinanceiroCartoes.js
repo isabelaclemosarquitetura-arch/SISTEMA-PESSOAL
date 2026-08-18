@@ -69,6 +69,8 @@ export default function FinanceiroCartoes({ data, update, lang = 'pt' }) {
   }
 
   const handleDelete = (id) => {
+    const cartao = cartoes.find(c => c.id === id)
+    if (!window.confirm(`Excluir cartão "${cartao?.nome || ''}"? Os lançamentos já cadastrados não serão apagados.`)) return
     update('cartoes', cartoes.filter(c => c.id !== id))
     showFeedback('Cartão removido.')
   }
