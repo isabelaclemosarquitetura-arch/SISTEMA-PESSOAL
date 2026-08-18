@@ -214,9 +214,7 @@ export default function Home() {
   const save = (newData) => {
     setData(newData)
     clearTimeout(saveDebounceRef.current)
-    saveDebounceRef.current = setTimeout(() => {
-      localStorage.setItem('sp_data', JSON.stringify(newData))
-    }, 350)
+    localStorage.setItem('sp_data', JSON.stringify(newData))
     clearTimeout(savedTimerRef.current)
     setSavedIndicator(true)
     savedTimerRef.current = setTimeout(() => setSavedIndicator(false), 1500)
