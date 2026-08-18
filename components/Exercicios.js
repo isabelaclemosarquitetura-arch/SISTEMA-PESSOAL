@@ -10,68 +10,68 @@ const ROTINA_PADRAO = {
     nome: 'Inferior A — Foco em Glúteos',
     exercicios: [
       { id: 'inf-a-1', nome: 'Elevação Pélvica no Solo', grupo: 'Glúteos', series: 3, reps: '15', descanso: 30, descricao: 'Deite de costas, joelhos dobrados, pés no chão. Eleve o quadril contraindo os glúteos. Segure 2s no topo e desça controlado.', gif: 'https://i.pinimg.com/originals/d9/3e/2c/d93e2c19b1b9e78c6a5f4e7d1c8b2a45.gif', concluido: false },
-      { id: 'inf-a-2', nome: 'Elevação Pélvica Unilateral', grupo: 'Glúteos', series: 3, reps: '12 cada', descanso: 30, descricao: 'Igual à elevação pélvica, mas com uma perna estendida. Foca em um lado de cada vez.', gif: '', concluido: false },
-      { id: 'inf-a-3', nome: 'Hidrante', grupo: 'Glúteos / Abdutores', series: 3, reps: '15 cada', descanso: 20, descricao: 'Em quatro apoios, eleve o joelho lateralmente até a altura do quadril, mantendo o joelho dobrado a 90°.', gif: '', concluido: false },
-      { id: 'inf-a-4', nome: 'Concha', grupo: 'Glúteos / Abdutores', series: 3, reps: '15 cada', descanso: 20, descricao: 'Deitada de lado com joelhos dobrados e pés juntos. Abra o joelho de cima como uma concha, sem mover o quadril.', gif: '', concluido: false },
-      { id: 'inf-a-5', nome: 'Elevação Lateral de Perna', grupo: 'Abdutores / Glúteos', series: 3, reps: '20 cada', descanso: 20, descricao: 'Deitada de lado, eleve a perna de cima de forma controlada. Mantenha o pé em flexão.', gif: '', concluido: false },
+      { id: 'inf-a-2', nome: 'Elevação Pélvica Unilateral', grupo: 'Glúteos', series: 3, reps: '12 cada', descanso: 30, descricao: 'Igual à elevação pélvica, mas com uma perna estendida. Foca em um lado de cada vez.', gif: 'https://i.pinimg.com/originals/80/7e/ec/807eecdc41df90e3eb4c7e6348981c2e.gif', concluido: false },
+      { id: 'inf-a-3', nome: 'Hidrante', grupo: 'Glúteos / Abdutores', series: 3, reps: '15 cada', descanso: 20, descricao: 'Em quatro apoios, eleve o joelho lateralmente até a altura do quadril, mantendo o joelho dobrado a 90°.', gif: 'https://i.pinimg.com/originals/11/48/9b/11489b4f9c0be0722256da6c8f655dc3.gif', concluido: false },
+      { id: 'inf-a-4', nome: 'Concha', grupo: 'Glúteos / Abdutores', series: 3, reps: '15 cada', descanso: 20, descricao: 'Deitada de lado com joelhos dobrados e pés juntos. Abra o joelho de cima como uma concha, sem mover o quadril.', gif: 'https://i.pinimg.com/originals/d5/39/e7/d539e767475d4eaf0ddbdba4c20ee3bc.gif', concluido: false },
+      { id: 'inf-a-5', nome: 'Elevação Lateral de Perna', grupo: 'Abdutores / Glúteos', series: 3, reps: '20 cada', descanso: 20, descricao: 'Deitada de lado, eleve a perna de cima de forma controlada. Mantenha o pé em flexão.', gif: 'https://i.pinimg.com/originals/2c/61/fc/2c61fcf138e9fc7e97f48037ed52cc08.gif', concluido: false },
     ]
   },
   ter: {
     nome: 'Superior A',
     exercicios: [
-      { id: 'sup-a-1', nome: 'Flexão com Joelhos Apoiados', grupo: 'Peito / Tríceps', series: 3, reps: '10', descanso: 45, descricao: 'Posição de flexão modificada com joelhos no chão. Desça o peito até quase tocar o chão e suba.', gif: '', concluido: false },
-      { id: 'sup-a-2', nome: 'Tríceps na Cadeira', grupo: 'Tríceps', series: 3, reps: '12', descanso: 30, descricao: 'Sente na beira de uma cadeira, mãos na borda. Desça o corpo dobrando os cotovelos e suba.', gif: '', concluido: false },
-      { id: 'sup-a-3', nome: 'Superman', grupo: 'Lombar / Glúteos', series: 3, reps: '15', descanso: 20, descricao: 'Deite de barriga para baixo. Eleve braços e pernas simultaneamente como se estivesse voando.', gif: '', concluido: false },
-      { id: 'sup-a-4', nome: 'Remada com Mochila', grupo: 'Costas / Bíceps', series: 3, reps: '12 cada', descanso: 30, descricao: 'Incline o tronco, segure uma mochila (ou objeto pesado) e puxe em direção ao quadril, cotovelo para trás.', gif: '', concluido: false },
-      { id: 'sup-a-5', nome: 'Elevação Lateral', grupo: 'Ombros', series: 3, reps: '12', descanso: 30, descricao: 'Com halteres ou garrafinhas d\'água, eleve os braços lateralmente até a altura dos ombros.', gif: '', concluido: false },
-      { id: 'sup-a-6', nome: 'Hidrante', grupo: 'Glúteos / Abdutores', series: 2, reps: '15 cada', descanso: 20, descricao: 'Em quatro apoios, eleve o joelho lateralmente até a altura do quadril.', gif: '', concluido: false },
-      { id: 'sup-a-7', nome: 'Concha', grupo: 'Glúteos / Abdutores', series: 2, reps: '15 cada', descanso: 20, descricao: 'Deitada de lado, abra o joelho de cima como uma concha.', gif: '', concluido: false },
+      { id: 'sup-a-1', nome: 'Flexão com Joelhos Apoiados', grupo: 'Peito / Tríceps', series: 3, reps: '10', descanso: 45, descricao: 'Posição de flexão modificada com joelhos no chão. Desça o peito até quase tocar o chão e suba.', gif: 'https://i.pinimg.com/originals/6e/8b/44/6e8b44453cb09fbe7047da3a696dbf20.gif', concluido: false },
+      { id: 'sup-a-2', nome: 'Mergulho no Solo', grupo: 'Tríceps', series: 3, reps: '12', descanso: 30, descricao: 'Sente no chão com mãos atrás do corpo, eleve o quadril e dobre os cotovelos, esticando em seguida. Sem usar cadeira.', gif: 'https://i.pinimg.com/originals/7d/5a/09/7d5a09b30c5e7c8b090df4a78103554e.gif', concluido: false },
+      { id: 'sup-a-3', nome: 'Superman', grupo: 'Lombar / Glúteos', series: 3, reps: '15', descanso: 20, descricao: 'Deite de barriga para baixo. Eleve braços e pernas simultaneamente como se estivesse voando.', gif: 'https://i.pinimg.com/originals/61/88/54/618854203e04746f32e92ecbe8c214da.gif', concluido: false },
+      { id: 'sup-a-4', nome: 'Prancha com Toque no Ombro', grupo: 'Costas / Core', series: 3, reps: '12 cada', descanso: 30, descricao: 'Em posição de prancha alta (braços esticados), toque a mão no ombro oposto alternadamente, sem girar o quadril.', gif: 'https://i.pinimg.com/originals/73/45/ea/7345ea3f458deffcddebbbe448058a9e.gif', concluido: false },
+      { id: 'sup-a-5', nome: 'Prancha Lateral Estática', grupo: 'Ombros / Oblíquos', series: 3, reps: '30s cada', descanso: 30, descricao: 'Apoie o antebraço no chão e eleve o quadril, mantendo o corpo em linha reta. Força nos ombros.', gif: 'https://i.pinimg.com/originals/c9/02/b7/c902b704c7f0782e46b9a38eb04a0cb0.gif', concluido: false },
+      { id: 'sup-a-6', nome: 'Hidrante', grupo: 'Glúteos / Abdutores', series: 2, reps: '15 cada', descanso: 20, descricao: 'Em quatro apoios, eleve o joelho lateralmente até a altura do quadril.', gif: 'https://i.pinimg.com/originals/11/48/9b/11489b4f9c0be0722256da6c8f655dc3.gif', concluido: false },
+      { id: 'sup-a-7', nome: 'Concha', grupo: 'Glúteos / Abdutores', series: 2, reps: '15 cada', descanso: 20, descricao: 'Deitada de lado, abra o joelho de cima como uma concha.', gif: 'https://i.pinimg.com/originals/d5/39/e7/d539e767475d4eaf0ddbdba4c20ee3bc.gif', concluido: false },
     ]
   },
   qua: {
     nome: 'Inferior B',
     exercicios: [
-      { id: 'inf-b-1', nome: 'Agachamento Sumô', grupo: 'Quadríceps / Glúteos', series: 3, reps: '15', descanso: 40, descricao: 'Pés afastados além dos ombros, pontas dos pés viradas para fora. Agache mantendo o tronco ereto.', gif: '', concluido: false },
-      { id: 'inf-b-2', nome: 'Afundo', grupo: 'Quadríceps / Glúteos', series: 3, reps: '12 cada', descanso: 40, descricao: 'Dê um passo à frente e desça o joelho de trás próximo ao chão. Mantenha o tronco ereto.', gif: '', concluido: false },
-      { id: 'inf-b-3', nome: 'Cadeira Invisível', grupo: 'Quadríceps', series: 3, reps: '40s', descanso: 30, descricao: 'Apoie as costas na parede, desça até 90° e segure a posição pelo tempo determinado.', gif: '', concluido: false },
-      { id: 'inf-b-4', nome: 'Elevação de Panturrilha', grupo: 'Panturrilha', series: 3, reps: '20', descanso: 20, descricao: 'Em pé, suba na ponta dos pés e desça controlado. Pode fazer em um degrau para maior amplitude.', gif: '', concluido: false },
-      { id: 'inf-b-5', nome: 'Prancha', grupo: 'Core', series: 3, reps: '30s', descanso: 30, descricao: 'Apoie nos antebraços e pontas dos pés. Mantenha o corpo reto como uma tábua.', gif: '', concluido: false },
+      { id: 'inf-b-1', nome: 'Agachamento Sumô Livre', grupo: 'Quadríceps / Glúteos', series: 3, reps: '15', descanso: 40, descricao: 'Pés afastados além dos ombros, pontas dos pés viradas para fora. Agache mantendo o tronco ereto.', gif: 'https://i.pinimg.com/originals/78/ae/c7/78aec76643de58a8a816de502e604724.gif', concluido: false },
+      { id: 'inf-b-2', nome: 'Afundo Livre', grupo: 'Quadríceps / Glúteos', series: 3, reps: '12 cada', descanso: 40, descricao: 'Dê um passo à frente e desça o joelho de trás próximo ao chão. Mantenha o tronco ereto.', gif: 'https://i.pinimg.com/originals/e5/23/07/e5230787e9140cfa9a9ffcc6a12b9d21.gif', concluido: false },
+      { id: 'inf-b-3', nome: 'Agachamento Isométrico Livre', grupo: 'Quadríceps', series: 3, reps: '40s', descanso: 30, descricao: 'Agache no meio do movimento (sem parede) e sustente a posição por tempo. Mantenha as pernas ativadas.', gif: 'https://i.pinimg.com/originals/bd/06/f0/bd06f0e7dc280c4391efef4f8cf1a46e.gif', concluido: false },
+      { id: 'inf-b-4', nome: 'Elevação de Panturrilha no Solo', grupo: 'Panturrilha', series: 3, reps: '20', descanso: 20, descricao: 'Em pé no chão, suba na ponta dos pés e desça controlado.', gif: 'https://i.pinimg.com/originals/60/a4/bc/60a4bc0dd7849e755dc03964593de56e.gif', concluido: false },
+      { id: 'inf-b-5', nome: 'Prancha', grupo: 'Core', series: 3, reps: '30s', descanso: 30, descricao: 'Apoie nos antebraços e pontas dos pés. Mantenha o corpo reto como uma tábua.', gif: 'https://i.pinimg.com/originals/26/51/79/26517942733d3c7c2579dfbb7a1dfbc0.gif', concluido: false },
     ]
   },
   qui: {
     nome: 'Superior B',
     exercicios: [
-      { id: 'sup-b-1', nome: 'Flexão Fechada', grupo: 'Tríceps / Peito', series: 3, reps: '10', descanso: 45, descricao: 'Flexão com mãos próximas, abaixo do peito. Foca mais no tríceps.', gif: '', concluido: false },
-      { id: 'sup-b-2', nome: 'Desenvolvimento de Ombro', grupo: 'Ombros', series: 3, reps: '12', descanso: 30, descricao: 'Com garrafinhas ou halteres, sente e empurre acima da cabeça. Desça controlado.', gif: '', concluido: false },
-      { id: 'sup-b-3', nome: 'Crucifixo com Garrafa', grupo: 'Peito', series: 3, reps: '12', descanso: 30, descricao: 'Deitada, segure garrafinhas com braços levemente dobrados. Abra os braços e feche como um abraço.', gif: '', concluido: false },
-      { id: 'sup-b-4', nome: 'Superman com Alternância', grupo: 'Lombar / Glúteos', series: 3, reps: '12 cada', descanso: 20, descricao: 'Deite de barriga para baixo. Eleve o braço direito e perna esquerda juntos, alterne.', gif: '', concluido: false },
-      { id: 'sup-b-5', nome: 'Bíceps com Garrafa', grupo: 'Bíceps', series: 3, reps: '12', descanso: 30, descricao: 'Segure garrafinhas com a palma para cima. Dobre o cotovelo trazendo a garrafa ao ombro.', gif: '', concluido: false },
+      { id: 'sup-b-1', nome: 'Flexão Fechada (Mãos Juntas)', grupo: 'Tríceps / Peito', series: 3, reps: '10', descanso: 45, descricao: 'Flexão com mãos próximas (diamante ou alinhadas), joelhos apoiados. Foca no tríceps.', gif: 'https://i.pinimg.com/originals/70/4e/4f/704e4f620bd70845a76c2436dff38c64.gif', concluido: false },
+      { id: 'sup-b-2', nome: 'Pike Push-up (Flexão Pike)', grupo: 'Ombros', series: 3, reps: '12', descanso: 30, descricao: 'Corpo em V invertido (cão olhando para baixo), flexione os cotovelos e desça o topo da cabeça na direção do chão.', gif: 'https://i.pinimg.com/originals/d6/3d/e4/d63de406d28929e083cdaab6871c4c81.gif', concluido: false },
+      { id: 'sup-b-3', nome: 'Flexão Ampla (Aberta)', grupo: 'Peito', series: 3, reps: '12', descanso: 30, descricao: 'Apoie os joelhos. Afaste bem as mãos além da largura dos ombros. Desça controlando o peito.', gif: 'https://i.pinimg.com/originals/4e/71/3f/4e713fc9e0996dbef55c1b1c6deba69c.gif', concluido: false },
+      { id: 'sup-b-4', nome: 'Superman com Alternância', grupo: 'Lombar / Glúteos', series: 3, reps: '12 cada', descanso: 20, descricao: 'Deite de barriga para baixo. Eleve o braço direito e perna esquerda juntos, alterne.', gif: 'https://i.pinimg.com/originals/61/88/54/618854203e04746f32e92ecbe8c214da.gif', concluido: false },
+      { id: 'sup-b-5', nome: 'Caminhada de Mãos', grupo: 'Ombros / Core', series: 3, reps: '10', descanso: 30, descricao: 'Em pé, desça as mãos no chão e caminhe até a prancha. Volte caminhando as mãos para o pé.', gif: 'https://i.pinimg.com/originals/40/e1/9b/40e19bd8bbbc141d06eec4e1df3d40cb.gif', concluido: false },
     ]
   },
   sex: {
     nome: 'Inferior C',
     exercicios: [
-      { id: 'inf-c-1', nome: 'Agachamento Búlgaro', grupo: 'Quadríceps / Glúteos', series: 3, reps: '10 cada', descanso: 45, descricao: 'Pé traseiro apoiado em cadeira. Desça em afundo profundo. Mantém tronco ereto.', gif: '', concluido: false },
-      { id: 'inf-c-2', nome: 'Stiff', grupo: 'Posterior / Glúteos', series: 3, reps: '15', descanso: 40, descricao: 'Com ou sem carga, incline o tronco à frente mantendo as pernas quase estendidas. Sinta o alongamento.', gif: '', concluido: false },
-      { id: 'inf-c-3', nome: 'Agachamento Isométrico', grupo: 'Quadríceps', series: 3, reps: '45s', descanso: 30, descricao: 'Agache até 90° e segure a posição. Também chamado de cadeira na parede.', gif: '', concluido: false },
-      { id: 'inf-c-4', nome: 'Abdução em Pé', grupo: 'Abdutores / Glúteos', series: 3, reps: '20 cada', descanso: 20, descricao: 'Em pé, apoie em uma parede. Eleve a perna lateralmente de forma controlada.', gif: '', concluido: false },
-      { id: 'inf-c-5', nome: 'Abdução Deitada', grupo: 'Abdutores', series: 3, reps: '20 cada', descanso: 20, descricao: 'Deitada de lado, eleve a perna superior sem dobrar o joelho.', gif: '', concluido: false },
+      { id: 'inf-c-1', nome: 'Afundo Reverso', grupo: 'Quadríceps / Glúteos', series: 3, reps: '10 cada', descanso: 45, descricao: 'Em pé, dê um passo para TRÁS e desça em afundo. Suba e volte à base. Alterne pernas.', gif: 'https://i.pinimg.com/originals/52/64/9b/52649bcf8cf8e3eb33ccce6058d9da63.gif', concluido: false },
+      { id: 'inf-c-2', nome: 'Stiff Unilateral sem Carga', grupo: 'Posterior / Glúteos', series: 3, reps: '15 cada', descanso: 40, descricao: 'Em um pé só, incline o tronco à frente levantando a outra perna atrás, mantendo equilíbrio. Toca o pé com a mão.', gif: 'https://i.pinimg.com/originals/0a/7b/bd/0a7bbdc5c92cd86b6a22f7b4e9b92569.gif', concluido: false },
+      { id: 'inf-c-3', nome: 'Passo Lateral no Agachamento', grupo: 'Quadríceps', series: 3, reps: '45s', descanso: 30, descricao: 'Na posição de meio agachamento, dê um passo para o lado, e junte a perna. Caminhe de lado.', gif: 'https://i.pinimg.com/originals/dc/8e/31/dc8e3146d8479e0a0baac3c4c83e18a8.gif', concluido: false },
+      { id: 'inf-c-4', nome: 'Elevação Lateral de Perna em Pé', grupo: 'Abdutores / Glúteos', series: 3, reps: '20 cada', descanso: 20, descricao: 'Em pé no meio da sala, eleve a perna lateralmente de forma controlada buscando equilíbrio.', gif: 'https://i.pinimg.com/originals/2c/61/fc/2c61fcf138e9fc7e97f48037ed52cc08.gif', concluido: false },
+      { id: 'inf-c-5', nome: 'Abdução Deitada no Solo', grupo: 'Abdutores', series: 3, reps: '20 cada', descanso: 20, descricao: 'Deitada de lado, eleve a perna superior sem dobrar o joelho.', gif: 'https://i.pinimg.com/originals/2c/61/fc/2c61fcf138e9fc7e97f48037ed52cc08.gif', concluido: false },
     ]
   },
   sab: {
     nome: 'Dança / Atividade Aeróbica',
     exercicios: [
-      { id: 'aerob-1', nome: 'Dança Livre', grupo: 'Cardio / Corpo todo', series: 1, reps: '30 min', descanso: 0, descricao: 'Dance ao som das suas músicas favoritas! Mova todo o corpo, divirta-se e sue bastante.', gif: '', concluido: false },
-      { id: 'aerob-2', nome: 'Caminhada Rápida', grupo: 'Cardio', series: 1, reps: '20-30 min', descanso: 0, descricao: 'Caminhe em ritmo acelerado, mantendo o coração elevado. Pode ser ao ar livre ou em casa.', gif: '', concluido: false },
+      { id: 'aerob-1', nome: 'Dança Livre', grupo: 'Cardio / Corpo todo', series: 1, reps: '30 min', descanso: 0, descricao: 'Dance ao som das suas músicas favoritas! Mova todo o corpo, divirta-se e sue bastante.', gif: 'https://i.pinimg.com/originals/e8/3f/8f/e83f8fba3b6dc00fae00782f93d39dbf.gif', concluido: false },
+      { id: 'aerob-2', nome: 'Caminhada Rápida / Corrida Estacionária', grupo: 'Cardio', series: 1, reps: '20-30 min', descanso: 0, descricao: 'Simule uma corrida parada no lugar, erguendo bem os joelhos e movendo os braços.', gif: 'https://i.pinimg.com/originals/30/08/bf/3008bfaefcfdcd6cf28ecf7596b797cd.gif', concluido: false },
     ]
   },
   dom: {
     nome: 'Yoga / Mobilidade / Recuperação',
     exercicios: [
-      { id: 'yoga-1', nome: 'Alongamento de Quadril', grupo: 'Mobilidade', series: 2, reps: '30s cada', descanso: 0, descricao: 'Posição de pombo ou borboleta. Respire profundamente e relaxe na posição.', gif: '', concluido: false },
-      { id: 'yoga-2', nome: 'Gato-Vaca', grupo: 'Coluna / Mobilidade', series: 2, reps: '10', descanso: 0, descricao: 'Em quatro apoios, alterne entre arqueiar e curvar a coluna no ritmo da respiração.', gif: '', concluido: false },
-      { id: 'yoga-3', nome: 'Torção Deitada', grupo: 'Coluna / Mobilidade', series: 2, reps: '30s cada', descanso: 0, descricao: 'Deitada de costas, abra os braços em T e leve os joelhos para um lado. Alterne.', gif: '', concluido: false },
-      { id: 'yoga-4', nome: 'Relaxamento (Savasana)', grupo: 'Recuperação', series: 1, reps: '5-10 min', descanso: 0, descricao: 'Deite de costas, olhos fechados, respire profundamente. Deixe o corpo relaxar completamente.', gif: '', concluido: false },
+      { id: 'yoga-1', nome: 'Alongamento de Quadril', grupo: 'Mobilidade', series: 2, reps: '30s cada', descanso: 0, descricao: 'Posição de pombo ou borboleta. Respire profundamente e relaxe na posição.', gif: 'https://i.pinimg.com/originals/60/a1/bb/60a1bbd7a1cd1f58b0ab7ef0a8117765.gif', concluido: false },
+      { id: 'yoga-2', nome: 'Gato-Vaca', grupo: 'Coluna / Mobilidade', series: 2, reps: '10', descanso: 0, descricao: 'Em quatro apoios, alterne entre arqueiar e curvar a coluna no ritmo da respiração.', gif: 'https://i.pinimg.com/originals/05/20/6c/05206c62c9339e80e5e0129a3e2a9e22.gif', concluido: false },
+      { id: 'yoga-3', nome: 'Torção Deitada', grupo: 'Coluna / Mobilidade', series: 2, reps: '30s cada', descanso: 0, descricao: 'Deitada de costas, abra os braços em T e leve os joelhos para um lado. Alterne.', gif: 'https://i.pinimg.com/originals/bc/23/e8/bc23e8083c2e1f579549f2b1d0339dcf.gif', concluido: false },
+      { id: 'yoga-4', nome: 'Relaxamento (Savasana)', grupo: 'Recuperação', series: 1, reps: '5-10 min', descanso: 0, descricao: 'Deite de costas, olhos fechados, respire profundamente. Deixe o corpo relaxar completamente.', gif: 'https://i.pinimg.com/originals/d9/d2/00/d9d200fb74e649069d1a36dc8a9ef332.gif', concluido: false },
     ]
   },
 }

@@ -12,7 +12,7 @@ const EMPTY_FORM = {
   status: 'Pendente', observacao: '', parcela: '', vencimento: '',
   formaPagamento: 'Dinheiro', cartao: '',
   recorrente: false, recorrenciaTipo: 'Mensal', recorrenciaIntervaloDias: '',
-  parcelado: false, qtdParcelas: '', pagamentoAutomatico: false,
+  parcelado: false, qtdParcelas: '', pagamentoAutomatico: false, projeto: ''
 }
 
 const STATUS_DESPESA = ['Pendente', 'Pago', 'Vencido', 'Pago automaticamente']
@@ -33,6 +33,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const mesAtualIdx = hoje.getMonth()
   const [mesFiltro, setMesFiltro] = useState(MESES[mesAtualIdx])
   const [cartaoFiltro, setCartaoFiltro] = useState('')
+  const [origemFiltro, setOrigemFiltro] = useState('Todos')
   const [busca, setBusca] = useState('')
   const [form, setForm] = useState({ ...EMPTY_FORM, mes: MESES[mesAtualIdx] })
   const [editId, setEditId] = useState(null)
@@ -51,7 +52,12 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
 
   const lancMesBase = lancamentos.filter(l => (l.mes || '').toLowerCase() === mesFiltro.toLowerCase())
   const lancMesCartao = cartaoFiltro === '' ? lancMesBase : cartaoFiltro === '__nocard__' ? lancMesBase.filter(l => !l.cartao) : lancMesBase.filter(l => l.cartao === cartaoFiltro)
-  const lancMes = busca ? lancMesCartao.filter(l => l.descricao?.toLowerCase().includes(busca.toLowerCase()) || l.categoria?.toLowerCase().includes(busca.toLowerCase())) : lancMesCartao
+  
+  const lancMesOrigem = origemFiltro === 'Todos' ? lancMesCartao : 
+                        origemFiltro === 'Trabalho' ? lancMesCartao.filter(l => l._projetoId || l.categoria === 'Recebimento Projeto' || l.categoria === 'Trabalho') : 
+                        lancMesCartao.filter(l => !(l._projetoId || l.categoria === 'Recebimento Projeto' || l.categoria === 'Trabalho'))
+                        
+  const lancMes = busca ? lancMesOrigem.filter(l => l.descricao?.toLowerCase().includes(busca.toLowerCase()) || l.categoria?.toLowerCase().includes(busca.toLowerCase())) : lancMesOrigem
 
   const receitas = sum(lancMes, 'Receita'), despesas = sum(lancMes, 'Despesa'), saldoPrevisto = receitas - despesas
   const receitasRecebidas = lancMes.filter(l => l.tipo === 'Receita' && l.status === 'Recebida').reduce((s, l) => s + moneyNumber(l.valor), 0)
@@ -85,7 +91,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
 
   const handleField = (k, v) => setForm(f => {
     const next = { ...f, [k]: v }
-    if (k === 'tipo') { next.cartao = ''; next.formaPagamento = v === 'Receita' ? '' : 'Dinheiro'; next.status = v === 'Receita' ? 'Prevista' : 'Pendente'; next.parcelado = false; next.pagamentoAutomatico = false }
+    if (k === 'tipo') { next.cartao = ''; next.formaPagamento = v === 'Receita' ? '' : 'Dinheiro'; next.status = v === 'Receita' ? 'Prevista' : 'Pendente'; next.parcelado = false; next.pagamentoAutomatico = false; next.projeto = '' }
     if (k === 'formaPagamento' && v !== 'Crédito') next.cartao = ''
     if (k === 'parcelado' && v) { next.recorrente = false }
     if (k === 'recorrente' && v) { next.parcelado = false }
@@ -225,6 +231,14 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
         <div className="month-pills">{MESES.map(m => <button key={m} className={`pill ${mesFiltro === m ? 'active' : ''}`} onClick={() => setMesFiltro(m)}>{m.slice(0, 3)}</button>)}</div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input type="text" placeholder={t(lang, 'lanc.searchPh')} value={busca} onChange={e => setBusca(e.target.value)} style={{ minWidth: 220 }} />
+          <div className="form-group filter-card-select">
+            <label>Origem</label>
+            <select value={origemFiltro} onChange={e => setOrigemFiltro(e.target.value)}>
+              <option value="Todos">Todas origens</option>
+              <option value="Pessoal">Pessoal</option>
+              <option value="Trabalho">Trabalho</option>
+            </select>
+          </div>
           <div className="form-group filter-card-select"><label>{t(lang, 'lanc.card').replace(' *', '')}</label><select value={cartaoFiltro} onChange={e => setCartaoFiltro(e.target.value)}><option value="">{t(lang, 'lanc.allCards')}</option><option value="__nocard__">{t(lang, 'lanc.noCard')}</option>{cartoesUsados.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
         </div>
       </div>
@@ -257,6 +271,17 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
             <div className="form-group" style={{ maxWidth: 150 }}><label>{form.tipo === 'Receita' ? t(lang, 'lanc.expectedDate') : t(lang, 'lanc.dueDate')}</label><input type="date" value={form.vencimento} onChange={e => handleField('vencimento', e.target.value)} /></div>
             {form.tipo === 'Despesa' && <div className="form-group" style={{ maxWidth: 160 }}><label>{t(lang, 'lanc.payMethod')}</label><select value={form.formaPagamento} onChange={e => handleField('formaPagamento', e.target.value)}>{FORMAS_PAGAMENTO.map(f => <option key={f}>{f}</option>)}</select></div>}
             {form.tipo === 'Despesa' && form.formaPagamento === 'Crédito' && <div className="form-group" style={{ maxWidth: 160 }}><label>{t(lang, 'lanc.card')}</label><select value={form.cartao} onChange={e => handleField('cartao', e.target.value)}><option value="">{t(lang, 'lanc.selectCard')}</option>{cartoesUsados.map(c => <option key={c}>{c}</option>)}</select></div>}
+            
+            {form.tipo === 'Receita' && (
+              <div className="form-group" style={{ maxWidth: 200 }}>
+                <label>Projeto Relacionado</label>
+                <select value={form.projeto || ''} onChange={e => handleField('projeto', e.target.value)}>
+                  <option value="">Nenhum</option>
+                  {(data.projetos || []).map(p => <option key={p.codigo} value={p.codigo}>{p.codigo} - {p.nome}</option>)}
+                </select>
+              </div>
+            )}
+
             {!form.parcelado && !form.recorrente && (
               <div className="form-group" style={{ maxWidth: 110 }}>
                 <label>Status</label>
@@ -267,6 +292,24 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
             )}
             <div className="form-group" style={{ flex: 2 }}><label>{t(lang, 'lanc.obs')}</label><input type="text" value={form.observacao} onChange={e => handleField('observacao', e.target.value)} /></div>
           </div>
+          
+          {form.tipo === 'Receita' && form.projeto && (
+            (() => {
+              const proj = (data.projetos || []).find(p => p.codigo === form.projeto)
+              if (!proj) return null
+              return (
+                <div style={{ background: 'var(--bg-card-alt)', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>
+                  <strong style={{ display: 'block', marginBottom: 4 }}>Detalhes do Projeto Vinculado:</strong>
+                  <div style={{ display: 'flex', gap: 16, color: 'var(--text-muted)' }}>
+                    <span><strong>Código:</strong> {proj.codigo}</span>
+                    <span><strong>Nome:</strong> {proj.nome}</span>
+                    <span><strong>Cliente:</strong> {proj.cliente || 'Não informado'}</span>
+                    <span><strong>Tipo:</strong> {proj.tipoProjeto || 'Não informado'}</span>
+                  </div>
+                </div>
+              )
+            })()
+          )}
           {/* Linha 3: Opções de recorrência / parcelamento */}
           <div className="form-row" style={{ alignItems: 'flex-start', gap: 16, marginBottom: 4 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -353,9 +396,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
             <tbody>{lancMes.sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')).map(l => {
               const isSettled = (l.tipo === 'Despesa' && (l.status === 'Pago' || l.status === 'Pago automaticamente')) || (l.tipo === 'Receita' && l.status === 'Recebida')
               const isVencido = l.status === 'Vencido'
-              const valorColor = l.tipo === 'Receita'
-                ? (l.status === 'Recebida' ? 'var(--green)' : 'var(--blue)')
-                : (isSettled ? 'var(--text-muted)' : isVencido ? 'var(--red)' : 'var(--red)')
+              const valorColor = l.tipo === 'Receita' ? 'var(--green)' : 'var(--red)'
               return (
                 <tr key={l.id} className={isSettled ? 'row-settled' : isVencido ? 'row-overdue' : 'row-pending'}>
                   <td><span className={`badge ${l.tipo === 'Receita' ? 'badge-green' : 'badge-red'}`}>{l.tipo}</span></td>
@@ -363,9 +404,12 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
                   <td className="muted-cell">{l.tipo === 'Despesa' ? (l.formaPagamento || '-') + (l.cartao ? ` · ${l.cartao}` : '') : '-'}</td>
                   <td style={{ fontWeight: 500 }}>
                     {l.descricao}
-                    {l.recorrenciaGrupoId && <span className="badge badge-gray" style={{ marginLeft: 6 }} title="Recorrente">↻</span>}
-                    {l.pagamentoAutomatico && <span className="badge badge-blue" style={{ marginLeft: 4 }} title="Pagamento automático">⚡</span>}
-                    {l._parcelaGrupoId && <span className="badge badge-gray" style={{ marginLeft: 4 }} title="Parcelado">🔢</span>}
+                    <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                      {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <span className="badge badge-blue">Recorrente</span>}
+                      {l.pagamentoAutomatico && <span className="badge badge-blue">Auto</span>}
+                      {(l.parcelado || l._parcelaGrupoId) && <span className="badge badge-gray">Parcelado</span>}
+                      {(l._projetoId || l.categoria === 'Recebimento Projeto' || l.categoria === 'Trabalho') && <span className="badge badge-gray" style={{ background: 'var(--blue)22', color: 'var(--blue)', borderColor: 'var(--blue)40' }}>💼 Trabalho</span>}
+                    </div>
                   </td>
                   <td style={{ fontWeight: 600, color: valorColor }}>{fmt(l.valor)}</td>
                   <td className="muted-cell">{fmtDataBR(l.vencimento)}</td>

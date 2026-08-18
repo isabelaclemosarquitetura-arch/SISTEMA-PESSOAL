@@ -102,7 +102,17 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
 
   const lancMes = lancamentos.filter(l => (l.mes || '').toLowerCase() === mesAtual.toLowerCase())
   const receitasPrevistasMes = lancMes.filter(l => l.tipo === 'Receita').reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const despesasPrevistasMes = lancMes.filter(l => l.tipo === 'Despesa').reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const despesasPrevistasMes = lancamentos.reduce((s, l) => {
+    if (l.tipo !== 'Despesa') return s;
+    if (l.recorrenciaTipo === 'Anual' && l.equivalenteMensal) {
+      // Usa o equivalente mensal para planejamento, ignorando o mês de cobrança real
+      return s + moneyNumber(l.equivalenteMensal);
+    }
+    if ((l.mes || '').toLowerCase() === mesAtual.toLowerCase()) {
+      return s + moneyNumber(l.valor);
+    }
+    return s;
+  }, 0)
 
   // ── visão financeira global ──
   const recebidoTotal = lancamentos.filter(l => l.tipo === 'Receita' && l.status === 'Recebida').reduce((s, l) => s + moneyNumber(l.valor), 0)

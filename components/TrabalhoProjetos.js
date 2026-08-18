@@ -14,7 +14,7 @@ const EMPTY_PROJETO = {
   nome: '', cliente: '', tipo: 'Residencial', dataInicio: '', duracaoDias: '',
   dataFim: '', status: 'Planejamento', observacoes: '', valorContratado: '',
   formaPagamento: 'À vista', tarefas: [], recebimentos: [], gastos: [],
-  qtdParcelas: '', parcelaValor: '', parcelaDataInicio: '',
+  vencimento: '', parcelado: false, qtdParcelas: '',
 }
 
 const EMPTY_TAREFA = {
@@ -112,12 +112,80 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
       update('projetos', projetos.map(p => p.id === editId ? { ...p, ...form } : p))
       showFeedback('Projeto atualizado!')
     } else {
+      const projId = String(Date.now())
       const novoProj = {
-        ...form, id: String(Date.now()), codigo: gerarCodigo(projetoContador),
+        ...form, id: projId, codigo: gerarCodigo(projetoContador),
         criadoEm: hojeISO(), tarefas: [], recebimentos: [], gastos: [],
       }
-      update({ projetos: [...projetos, novoProj], projetoContador: projetoContador + 1 })
-      showFeedback('Projeto criado! 🎉')
+      
+      let financeiroUpdates = []
+      let novosRecebimentos = []
+      
+      if (form.valorContratado && form.vencimento) {
+         if (form.parcelado && Number(form.qtdParcelas) > 1) {
+            const baseItem = {
+              grupoId: `proj-rec-${projId}`,
+              tipo: 'Receita', categoria: 'Recebimento Projeto',
+              descricao: `${form.nome}${form.cliente ? ` (${form.cliente})` : ''}`,
+              formaPagamento: form.formaPagamento, cartao: '',
+              observacao: '', recorrente: false, recorrenciaGrupoId: '',
+              pagamentoAutomatico: false, _projetoId: projId,
+            }
+            const parcelas = gerarParcelas({
+               valorTotal: Number(form.valorContratado),
+               qtdParcelas: Number(form.qtdParcelas),
+               dataInicioISO: form.vencimento,
+               baseItem
+            })
+            // Ajustar o status das parcelas
+            const financeiroParcelas = parcelas.map(p => ({ ...p, status: 'Prevista' }))
+            financeiroUpdates = financeiroParcelas
+            
+            novosRecebimentos = financeiroParcelas.map(p => ({
+               id: p.id, // o id do recebimento no projeto é o mesmo id do financeiro para fácil sync
+               valor: p.valor,
+               vencimento: p.vencimento,
+               dataPagamento: '',
+               status: 'Pendente',
+               formaPagamento: p.formaPagamento,
+               observacao: `Parcela ${p.parcela}`,
+            }))
+         } else {
+            const finId = `proj-rec-${projId}-av`
+            const novaReceita = {
+              id: finId, tipo: 'Receita', categoria: 'Recebimento Projeto',
+              descricao: `${form.nome}${form.cliente ? ` (${form.cliente})` : ''}`,
+              valor: String(Number(form.valorContratado).toFixed(2)), status: 'Prevista', pago: false,
+              vencimento: form.vencimento,
+              mes: mesDeISO(form.vencimento),
+              dataRecebimento: '',
+              recorrente: false, recorrenciaGrupoId: '', formaPagamento: form.formaPagamento,
+              _projetoId: projId,
+            }
+            financeiroUpdates = [novaReceita]
+            novosRecebimentos = [{
+               id: finId,
+               valor: Number(form.valorContratado),
+               vencimento: form.vencimento,
+               dataPagamento: '',
+               status: 'Pendente',
+               formaPagamento: form.formaPagamento,
+               observacao: 'À vista',
+            }]
+         }
+      }
+      novoProj.recebimentos = novosRecebimentos
+
+      if (financeiroUpdates.length > 0) {
+        update({ 
+           projetos: [...projetos, novoProj], 
+           projetoContador: projetoContador + 1,
+           financeiro: [...(data.financeiro || []), ...financeiroUpdates] 
+        })
+      } else {
+        update({ projetos: [...projetos, novoProj], projetoContador: projetoContador + 1 })
+      }
+      showFeedback('Projeto criado e financeiro atualizado! 🎉')
     }
     setForm({ ...EMPTY_PROJETO }); setEditId(null); setView('list')
   }
@@ -276,6 +344,26 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
                 {FORMAS_PAGAMENTO_PROJ.map(f => <option key={f}>{f}</option>)}
               </select>
             </div>
+            {!editId && (
+              <>
+                <div className="form-group" style={{ maxWidth: 155 }}>
+                  <label>Vencimento</label>
+                  <input type="date" value={form.vencimento} onChange={e => handleFieldProjeto('vencimento', e.target.value)} />
+                </div>
+                <div className="form-group" style={{ maxWidth: 140, display: 'flex', alignItems: 'center', marginTop: 24 }}>
+                  <label className="checkbox-label" style={{ marginBottom: 0 }}>
+                    <input type="checkbox" checked={form.parcelado} onChange={e => handleFieldProjeto('parcelado', e.target.checked)} />
+                    Parcelado
+                  </label>
+                </div>
+                {form.parcelado && (
+                  <div className="form-group" style={{ maxWidth: 120 }}>
+                    <label>Qtd parcelas</label>
+                    <input type="number" min="2" max="120" value={form.qtdParcelas} onChange={e => handleFieldProjeto('qtdParcelas', e.target.value)} placeholder="Ex: 3" />
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <div className="form-row">
             <div className="form-group" style={{ flex: 1 }}>
@@ -361,46 +449,90 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
   const handleSaveRec = () => {
     if (!recForm.valor) { showFeedback('Informe o valor.'); return }
     const recs = projeto.recebimentos || []
-    const novoRec = editRecId ? recs.map(r => r.id === editRecId ? { ...r, ...recForm, valor: Number(recForm.valor) } : r) : [...recs, { ...recForm, id: String(Date.now()), valor: Number(recForm.valor) }]
+    const isEdit = !!editRecId
+    const recId = isEdit ? editRecId : `proj-rec-${Date.now()}`
+    
+    const recEditado = { ...recForm, id: recId, valor: Number(recForm.valor) }
+    const novoRecs = isEdit ? recs.map(r => r.id === recId ? recEditado : r) : [...recs, recEditado]
 
-    // Vincular ao financeiro pessoal se ativado
-    if (!editRecId && recForm.vincularFinanceiro && recForm.status === 'Recebido') {
-      const novaReceita = {
-        id: `proj-rec-${Date.now()}`, tipo: 'Receita', categoria: 'Recebimento Projeto',
-        descricao: `${projeto.nome}${projeto.cliente ? ` (${projeto.cliente})` : ''}`,
-        valor: String(recForm.valor), status: 'Recebida', pago: false,
-        vencimento: recForm.dataPagamento || recForm.vencimento,
-        mes: mesDeISO(recForm.dataPagamento || recForm.vencimento),
-        dataRecebimento: recForm.dataPagamento || hojeISO(),
-        recorrente: false, recorrenciaGrupoId: '', formaPagamento: recForm.formaPagamento,
-      }
-      update({ projetos: projetos.map(p => p.id === projeto.id ? { ...p, recebimentos: novoRec } : p), financeiro: [...(data.financeiro || []), novaReceita] })
-    } else {
-      updateProjeto(projeto.id, 'recebimentos', novoRec)
+    const payloadFinanceiro = {
+      id: recId, tipo: 'Receita', categoria: 'Recebimento Projeto',
+      descricao: `${projeto.nome}${projeto.cliente ? ` (${projeto.cliente})` : ''} - ${recEditado.observacao || 'Recebimento'}`,
+      valor: String(recEditado.valor),
+      status: recEditado.status === 'Recebido' ? 'Recebida' : 'Prevista',
+      pago: false,
+      vencimento: recEditado.vencimento || hojeISO(),
+      mes: mesDeISO(recEditado.vencimento || hojeISO()),
+      dataRecebimento: recEditado.status === 'Recebido' ? (recEditado.dataPagamento || hojeISO()) : '',
+      recorrente: false, recorrenciaGrupoId: '', formaPagamento: recEditado.formaPagamento,
+      _projetoId: projeto.id
     }
+
+    let novoFinanceiro = data.financeiro || []
+    if (isEdit && novoFinanceiro.find(f => f.id === recId)) {
+      novoFinanceiro = novoFinanceiro.map(f => f.id === recId ? { ...f, ...payloadFinanceiro } : f)
+    } else {
+      novoFinanceiro = [...novoFinanceiro, payloadFinanceiro]
+    }
+
+    update({ 
+      projetos: projetos.map(p => p.id === projeto.id ? { ...p, recebimentos: novoRecs } : p), 
+      financeiro: novoFinanceiro 
+    })
+
     setRecForm({ ...EMPTY_RECEBIMENTO }); setEditRecId(null); setShowRecForm(false)
     showFeedback('Recebimento salvo!')
+  }
+
+  const marcarComoRecebido = (rec) => {
+    const recId = rec.id
+    const dataHj = hojeISO()
+    const recs = (projeto.recebimentos || []).map(r => r.id === recId ? { ...r, status: 'Recebido', dataPagamento: dataHj } : r)
+    
+    let novoFinanceiro = data.financeiro || []
+    if (novoFinanceiro.find(f => f.id === recId)) {
+      novoFinanceiro = novoFinanceiro.map(f => f.id === recId ? { ...f, status: 'Recebida', dataRecebimento: dataHj } : f)
+    }
+
+    update({
+      projetos: projetos.map(p => p.id === projeto.id ? { ...p, recebimentos: recs } : p),
+      financeiro: novoFinanceiro
+    })
+    showFeedback('Marcado como recebido!')
   }
 
   // ── Gastos ──
   const handleSaveGasto = () => {
     if (!gastoForm.descricao || !gastoForm.valor) { showFeedback('Preencha descrição e valor.'); return }
     const gastos = projeto.gastos || []
-    const novoGasto = editGastoId ? gastos.map(g => g.id === editGastoId ? { ...g, ...gastoForm, valor: Number(gastoForm.valor) } : g) : [...gastos, { ...gastoForm, id: String(Date.now()), valor: Number(gastoForm.valor) }]
+    const isEdit = !!editGastoId
+    const gastoId = isEdit ? editGastoId : `proj-gasto-${Date.now()}`
+    
+    const gastoEditado = { ...gastoForm, id: gastoId, valor: Number(gastoForm.valor) }
+    const novoGastos = isEdit ? gastos.map(g => g.id === gastoId ? gastoEditado : g) : [...gastos, gastoEditado]
 
-    if (!editGastoId && gastoForm.vincularFinanceiro) {
-      const novaDespesa = {
-        id: `proj-gasto-${Date.now()}`, tipo: 'Despesa', categoria: 'Trabalho',
-        descricao: `${gastoForm.descricao} — ${projeto.nome}`,
-        valor: String(gastoForm.valor), status: 'Pago', pago: true,
-        vencimento: gastoForm.data, mes: mesDeISO(gastoForm.data),
-        formaPagamento: gastoForm.formaPagamento, cartao: '',
-        recorrente: false, recorrenciaGrupoId: '', observacao: gastoForm.observacao,
-      }
-      update({ projetos: projetos.map(p => p.id === projeto.id ? { ...p, gastos: novoGasto } : p), financeiro: [...(data.financeiro || []), novaDespesa] })
-    } else {
-      updateProjeto(projeto.id, 'gastos', novoGasto)
+    const payloadFinanceiro = {
+      id: gastoId, tipo: 'Despesa', categoria: 'Trabalho',
+      descricao: `${gastoEditado.descricao} — ${projeto.nome}`,
+      valor: String(gastoEditado.valor), status: 'Pago', pago: true,
+      vencimento: gastoEditado.data || hojeISO(), mes: mesDeISO(gastoEditado.data || hojeISO()),
+      formaPagamento: gastoEditado.formaPagamento, cartao: '',
+      recorrente: false, recorrenciaGrupoId: '', observacao: gastoEditado.observacao,
+      _projetoId: projeto.id
     }
+
+    let novoFinanceiro = data.financeiro || []
+    if (isEdit && novoFinanceiro.find(f => f.id === gastoId)) {
+      novoFinanceiro = novoFinanceiro.map(f => f.id === gastoId ? { ...f, ...payloadFinanceiro } : f)
+    } else {
+      novoFinanceiro = [...novoFinanceiro, payloadFinanceiro]
+    }
+
+    update({ 
+      projetos: projetos.map(p => p.id === projeto.id ? { ...p, gastos: novoGastos } : p), 
+      financeiro: novoFinanceiro 
+    })
+
     setGastoForm({ ...EMPTY_GASTO }); setEditGastoId(null); setShowGastoForm(false)
     showFeedback('Gasto salvo!')
   }
@@ -637,10 +769,7 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                   <input type="text" value={recForm.observacao} onChange={e => setRecForm(f => ({ ...f, observacao: e.target.value }))} placeholder="Ex: Sinal, 1ª parcela..." />
                 </div>
                 <div className="form-group" style={{ maxWidth: 220 }}>
-                  <label className="checkbox-label">
-                    <input type="checkbox" checked={recForm.vincularFinanceiro} onChange={e => setRecForm(f => ({ ...f, vincularFinanceiro: e.target.checked }))} />
-                    ☑ Vincular ao Financeiro Pessoal
-                  </label>
+                  {/* Vinculação é sempre automática agora */}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
                   <button className="btn btn-primary" onClick={handleSaveRec}>Salvar</button>
@@ -668,6 +797,11 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                         </td>
                         <td className="muted-cell">{r.observacao || '—'}</td>
                         <td className="table-actions">
+                          {r.status !== 'Recebido' && (
+                            <button className="btn btn-primary btn-sm" onClick={() => marcarComoRecebido(r)}>
+                              Recebido ✓
+                            </button>
+                          )}
                           <button className="btn btn-ghost btn-sm" onClick={() => {
                             setRecForm({ ...EMPTY_RECEBIMENTO, ...r, valor: String(r.valor) })
                             setEditRecId(r.id); setShowRecForm(true)
@@ -727,10 +861,7 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                   <input type="text" value={gastoForm.observacao} onChange={e => setGastoForm(f => ({ ...f, observacao: e.target.value }))} placeholder="Opcional..." />
                 </div>
                 <div className="form-group" style={{ maxWidth: 220 }}>
-                  <label className="checkbox-label">
-                    <input type="checkbox" checked={gastoForm.vincularFinanceiro} onChange={e => setGastoForm(f => ({ ...f, vincularFinanceiro: e.target.checked }))} />
-                    ☑ Vincular ao Financeiro Pessoal
-                  </label>
+                  {/* Vinculação é sempre automática agora */}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
                   <button className="btn btn-primary" onClick={handleSaveGasto}>Salvar</button>
