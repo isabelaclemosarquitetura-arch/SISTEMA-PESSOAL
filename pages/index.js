@@ -8,12 +8,17 @@ import Habitos from '../components/Habitos'
 import Metas from '../components/Metas'
 import Exercicios from '../components/Exercicios'
 import Anotacoes from '../components/Anotacoes'
-import { migrarDados, ensureRecorrencias, DEFAULT_CDI_ANUAL, buscarCDIAnualAtual } from '../lib/finance'
+import Trabalho from '../components/Trabalho'
+import {
+  migrarDados, ensureRecorrencias, aplicarPagamentosAutomaticos, aplicarVencidos,
+  DEFAULT_CDI_ANUAL, buscarCDIAnualAtual, aplicarSeedFinanceiro
+} from '../lib/finance'
 
 const TAB_IDS = [
   { id: 'dashboard',  key: 'tab.dashboard',  icon: '🏠' },
   { id: 'agenda',     key: 'tab.agenda',     icon: '📅' },
   { id: 'financeiro', key: 'tab.financeiro', icon: '💰' },
+  { id: 'trabalho',   key: 'tab.trabalho',   icon: '💼' },
   { id: 'habitos',    key: 'tab.habitos',    icon: '🔁' },
   { id: 'metas',      key: 'tab.metas',      icon: '🎯' },
   { id: 'exercicios', key: 'tab.exercicios', icon: '🏋️' },
@@ -25,6 +30,9 @@ const INITIAL_DATA = {
   financeiro: [],
   investimentos: [],
   cartoes: [],
+  dividas: [],
+  projetos: [],
+  projetoContador: 0,
   configCDI: { taxaAnual: DEFAULT_CDI_ANUAL, atualizadoEm: '', manual: true, dataReferencia: '' },
   habitosLista: [
     'Beber 2L de água',
@@ -46,16 +54,8 @@ const INITIAL_DATA = {
     { id: 8, area: 'Lazer/Viagem',       meta: '', porque: '', prazo: '', progresso: 0, status: 'Pendente', acoes: '', resultado: '' },
   ],
   exercicios: {
-    plano: {
-      'Flexão de braço': { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Agachamento':     { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Abdominal Crunch':{ seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Prancha (Plank)': { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Burpee':          { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Polichinelo':     { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-      'Afundo (Lunge)':  { seg: false, ter: false, qua: false, qui: false, sex: false, sab: false, dom: false, series: '', reps: '', obs: '' },
-    },
-    historico: []
+    rotina: null, // null = usa a rotina padrão do componente
+    historico: [],
   },
   anotacoes: [],
   orcamentoCategoria: {},
@@ -96,14 +96,32 @@ export default function Home() {
         nextData = { ...INITIAL_DATA, ...parsed }
         if (!Array.isArray(nextData.habitosLista)) nextData.habitosLista = INITIAL_DATA.habitosLista
         if (!nextData.orcamentoCategoria) nextData.orcamentoCategoria = {}
+        if (!Array.isArray(nextData.dividas)) nextData.dividas = []
+        if (!Array.isArray(nextData.projetos)) nextData.projetos = []
+        if (nextData.projetoContador === undefined) nextData.projetoContador = 0
+        // Migrar exercicios antigos (plano → historico)
+        if (nextData.exercicios && nextData.exercicios.plano && !nextData.exercicios.rotina) {
+          nextData.exercicios = {
+            rotina: null,
+            historico: nextData.exercicios.historico || [],
+          }
+        }
       } catch {
-        nextData = INITIAL_DATA
+        nextData = { ...INITIAL_DATA }
       }
     } else {
-      nextData = INITIAL_DATA
+      nextData = { ...INITIAL_DATA }
     }
+
     nextData = migrarDados(nextData)
     nextData.financeiro = ensureRecorrencias(nextData.financeiro)
+    nextData.financeiro = aplicarPagamentosAutomaticos(nextData.financeiro)
+    nextData.financeiro = aplicarVencidos(nextData.financeiro)
+
+    // Seed de dados financeiros (só insere o que ainda não existe)
+    nextData.financeiro = aplicarSeedFinanceiro(nextData.financeiro)
+    nextData.financeiro = ensureRecorrencias(nextData.financeiro) // garante recorrências do seed
+
     setData(nextData)
     localStorage.setItem('sp_data', JSON.stringify(nextData))
   }, [])
@@ -114,7 +132,7 @@ export default function Home() {
     cdiCheckedRef.current = true
     const hoje = new Date().toISOString().split('T')[0]
     const configCDI = data.configCDI || {}
-    if (configCDI.atualizadoEm === hoje) return // já buscou hoje
+    if (configCDI.atualizadoEm === hoje) return
     buscarCDIAnualAtual()
       .then(({ taxaAnual, dataReferencia }) => {
         const newConfig = { taxaAnual, atualizadoEm: hoje, manual: false, dataReferencia }
@@ -124,10 +142,10 @@ export default function Home() {
           return next
         })
       })
-      .catch(() => {}) // silencioso — mantém o valor salvo
+      .catch(() => {})
   }, [data])
 
-  // Notificações de contas a vencer (solicita permissão uma vez)
+  // Notificações de contas a vencer
   useEffect(() => {
     if (!data || notifAsked || typeof window === 'undefined') return
     if (!('Notification' in window)) return
@@ -144,7 +162,7 @@ export default function Home() {
 
     const hojeStr = hoje.toISOString().split('T')[0]
     const lastNotif = localStorage.getItem('sp_last_notif')
-    if (lastNotif === hojeStr) return // já notificou hoje
+    if (lastNotif === hojeStr) return
 
     Notification.requestPermission().then(perm => {
       if (perm !== 'granted') return
@@ -161,13 +179,16 @@ export default function Home() {
     })
   }, [data, notifAsked])
 
-  // Atalhos de teclado: 1–7 trocam de aba
+  // Atalhos de teclado: 1–8 trocam de aba
   useEffect(() => {
     const handler = (e) => {
       const active = document.activeElement
       const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')
       if (isInput) return
-      const map = { '1': 'dashboard', '2': 'agenda', '3': 'financeiro', '4': 'habitos', '5': 'metas', '6': 'exercicios', '7': 'anotacoes' }
+      const map = {
+        '1': 'dashboard', '2': 'agenda', '3': 'financeiro', '4': 'trabalho',
+        '5': 'habitos',   '6': 'metas',  '7': 'exercicios', '8': 'anotacoes',
+      }
       if (map[e.key]) setTab(map[e.key])
     }
     window.addEventListener('keydown', handler)
@@ -195,12 +216,10 @@ export default function Home() {
 
   const save = (newData) => {
     setData(newData)
-    // Debounce: persiste no localStorage após 350ms de inatividade
     clearTimeout(saveDebounceRef.current)
     saveDebounceRef.current = setTimeout(() => {
       localStorage.setItem('sp_data', JSON.stringify(newData))
     }, 350)
-    // Indicador visual
     clearTimeout(savedTimerRef.current)
     setSavedIndicator(true)
     savedTimerRef.current = setTimeout(() => setSavedIndicator(false), 1500)
@@ -250,7 +269,10 @@ export default function Home() {
     e.target.value = ''
   }
 
-  const TABS = TAB_IDS.map(t2 => ({ ...t2, label: t(lang, t2.key) }))
+  const TABS = TAB_IDS.map(t2 => ({
+    ...t2,
+    label: t2.id === 'trabalho' ? 'Trabalho' : t(lang, t2.key)
+  }))
 
   const today = new Date()
   const locale = lang === 'en' ? 'en-US' : 'pt-BR'
@@ -273,10 +295,10 @@ export default function Home() {
         }} />
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 15, fontWeight: 600, color: '#2a2520', letterSpacing: '-0.2px' }}>
-            {t(lang, 'appName')}
+            Sistema Pessoal
           </div>
           <div style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 12, color: '#9a8f85', marginTop: 4 }}>
-            {t(lang, 'loading')}
+            Carregando seus dados...
           </div>
         </div>
         <style>{`
@@ -294,6 +316,7 @@ export default function Home() {
       case 'dashboard':  return <Dashboard  data={data} update={update} setTab={setTab} lang={lang} />
       case 'agenda':     return <Agenda     data={data} update={update} lang={lang} />
       case 'financeiro': return <Financeiro data={data} update={update} lang={lang} />
+      case 'trabalho':   return <Trabalho   data={data} update={update} lang={lang} />
       case 'habitos':    return <Habitos    data={data} update={update} lang={lang} />
       case 'metas':      return <Metas      data={data} update={update} lang={lang} />
       case 'exercicios': return <Exercicios data={data} update={update} lang={lang} />
@@ -305,8 +328,8 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>{t(lang, 'appName')}</title>
-        <meta name="description" content="Sistema de organização pessoal" />
+        <title>Sistema Pessoal</title>
+        <meta name="description" content="Sistema de organização pessoal — Financeiro, Trabalho e Exercícios" />
       </Head>
 
       <div className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
@@ -320,8 +343,8 @@ export default function Home() {
         </button>
 
         <div className="sidebar-header">
-          <h1>{t(lang, 'appName')}</h1>
-          <p>{t(lang, 'appSub')}</p>
+          <h1>Sistema Pessoal</h1>
+          <p>Organização pessoal</p>
         </div>
 
         <nav className="sidebar-nav">
@@ -330,7 +353,7 @@ export default function Home() {
               key={tb.id}
               className={`nav-item ${tab === tb.id ? 'active' : ''}`}
               onClick={() => setTab(tb.id)}
-              title={sidebarCollapsed ? `${tb.label} (${t(lang, 'keyHint')} ${idx + 1})` : `${t(lang, 'keyHint')} ${idx + 1}`}
+              title={sidebarCollapsed ? `${tb.label} (Tecla ${idx + 1})` : `Tecla ${idx + 1}`}
             >
               <span className="nav-icon">{tb.icon}</span>
               <span className="nav-label">{tb.label}</span>
@@ -405,7 +428,7 @@ export default function Home() {
               </div>
 
               <div className="settings-section">
-                <div className="settings-label">{t(lang, 'keyHint')}s</div>
+                <div className="settings-label">Atalhos de teclado</div>
                 <div className="settings-shortcuts">
                   {TABS.map((tab2, i) => (
                     <div key={tab2.id} className="shortcut-row">

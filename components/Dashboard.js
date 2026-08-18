@@ -458,6 +458,52 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
       </div>
 
 
+      {/* ── DÍVIDAS ── */}
+      {(data.dividas || []).filter(d => d.status === 'Em aberto').length > 0 && (() => {
+        const dividasAbertas = (data.dividas || []).filter(d => d.status === 'Em aberto')
+        const totalSaldo = dividasAbertas.reduce((s, d) => {
+          const pago = (d.pagamentos || []).reduce((a, p) => a + Number(p.valor || 0), 0)
+          return s + (Number(d.valorOriginal || 0) - pago)
+        }, 0)
+        return (
+          <>
+            <div className="dashboard-section-label">💳 Dívidas em aberto</div>
+            <div className="card" style={{ marginBottom: 20, cursor: 'pointer' }} onClick={() => setTab('financeiro')}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div className="card-title" style={{ margin: 0 }}>Saldo devedor total</div>
+                <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--red)' }}>
+                  {totalSaldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {dividasAbertas.map(d => {
+                  const pago = (d.pagamentos || []).reduce((a, p) => a + Number(p.valor || 0), 0)
+                  const saldo = Number(d.valorOriginal || 0) - pago
+                  const pct = Number(d.valorOriginal) > 0 ? Math.min(100, Math.round((pago / Number(d.valorOriginal)) * 100)) : 0
+                  return (
+                    <div key={d.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 13 }}>
+                        <span style={{ fontWeight: 600 }}>{d.nome}{d.credor ? ` · ${d.credor}` : ''}</span>
+                        <span style={{ color: 'var(--red)', fontWeight: 700 }}>
+                          {saldo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                      </div>
+                      <div className="chart-track" style={{ height: 5 }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: 'var(--green)', borderRadius: 4 }} />
+                      </div>
+                      <div className="muted-small" style={{ marginTop: 3 }}>{pct}% quitado</div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="muted-small" style={{ marginTop: 8, textAlign: 'right' }}>
+                Clique para gerenciar → Financeiro › Dívidas
+              </div>
+            </div>
+          </>
+        )
+      })()}
+
       {/* ── SEÇÃO 5: GRÁFICOS FINANCEIROS ── */}
       <div className="grid-2" style={{ marginBottom: 20 }}>
         <div className="card">
