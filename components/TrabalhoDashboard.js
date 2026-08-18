@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { fmt, moneyNumber, fmtDataBR } from '../lib/finance'
+import { fmt, moneyNumber, fmtDataBR, hojeISO } from '../lib/finance'
 
 const TIPOS_PROJETO = ['Residencial', 'Comercial', 'Hotelaria', 'Varejo', 'Escritório', 'Paisagismo', 'Design de Interiores', 'Detalhamentos', '3D']
 
@@ -11,7 +11,7 @@ function calcProgresso(tarefas) {
 
 function statusProjeto(proj) {
   if (proj.status === 'Concluído' || proj.status === 'Cancelado') return proj.status
-  if (proj.dataFim && proj.dataFim < new Date().toISOString().slice(0, 10) && proj.status !== 'Concluído') return 'Atrasado'
+  if (proj.dataFim && proj.dataFim < hojeISO() && proj.status !== 'Concluído') return 'Atrasado'
   return proj.status
 }
 
@@ -42,7 +42,7 @@ function calcFinanceiroProjeto(proj) {
 
 export default function TrabalhoDashboard({ data, onAbrirProjeto }) {
   const projetos = data.projetos || []
-  const hoje = new Date().toISOString().slice(0, 10)
+  const hoje = hojeISO()
   const mesAtual = new Date().getMonth()
   const anoAtual = new Date().getFullYear()
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { t } from '../lib/i18n'
-import { fmt, moneyNumber, hojeISO, valorRecebidoLancamento, valorPendenteLancamento } from '../lib/finance'
+import { fmt, moneyNumber, hojeISO, fmtDataBR, addDaysISO, valorRecebidoLancamento, valorPendenteLancamento } from '../lib/finance'
 
 export default function FinanceiroReceber({ data, update, lang = 'pt' }) {
   const [feedback, setFeedback] = useState('')
@@ -18,12 +18,6 @@ export default function FinanceiroReceber({ data, update, lang = 'pt' }) {
   const totalRecebidoMes = recebidas
     .filter(l => (l.dataRecebimento || '').slice(0, 7) === hoje.slice(0, 7))
     .reduce((s, l) => s + valorRecebidoLancamento(l), 0)
-
-  function addDaysISO(iso, dias) {
-    const d = new Date(iso)
-    d.setDate(d.getDate() + dias)
-    return d.toISOString().slice(0, 10)
-  }
 
   const showFeedback = (msg) => {
     setFeedback(msg)
@@ -97,7 +91,7 @@ export default function FinanceiroReceber({ data, update, lang = 'pt' }) {
                         {fmt(valorPendenteLancamento(l))}
                         {l.status === 'Parcial' && <div className="muted-small">Recebido: {fmt(valorRecebidoLancamento(l))}</div>}
                       </td>
-                      <td className="muted-cell">{l.vencimento}</td>
+                      <td className="muted-cell">{fmtDataBR(l.vencimento)}</td>
                       <td><span className={`badge ${l.status === 'Parcial' ? 'badge-blue' : atrasada ? 'badge-red' : 'badge-blue'}`}>{l.status === 'Parcial' ? 'Parcial' : atrasada ? t(lang,'rec.lateBadge') : t(lang,'rec.onTime')}</span></td>
                       <td className="table-actions">
                         <button className="btn btn-primary btn-sm" onClick={() => marcarRecebida(l)}>{t(lang,'rec.markReceived')}</button>
@@ -133,7 +127,7 @@ export default function FinanceiroReceber({ data, update, lang = 'pt' }) {
                     <td style={{ fontWeight: 500 }}>{l.descricao}</td>
                     <td className="muted-cell">{l.categoria}</td>
                     <td style={{ fontWeight: 600, color: 'var(--green)' }}>{fmt(l.valor)}</td>
-                    <td className="muted-cell">{l.dataRecebimento}</td>
+                    <td className="muted-cell">{fmtDataBR(l.dataRecebimento)}</td>
                     <td className="table-actions">
                       <button className="btn btn-ghost btn-sm" onClick={() => reabrir(l)}>{t(lang,'rec.reopen')}</button>
                     </td>

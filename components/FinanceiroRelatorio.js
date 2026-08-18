@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { t } from '../lib/i18n'
-import { MESES, fmt, moneyNumber, valorRecebidoLancamento, valorPendenteLancamento, isDespesaPaga } from '../lib/finance'
+import { MESES, fmt, moneyNumber, valorRecebidoLancamento, valorPendenteLancamento, isDespesaPaga, mesLancamento } from '../lib/finance'
 
 export default function FinanceiroRelatorio({ data, lang = 'pt' }) {
   const [mesIdx, setMesIdx] = useState(new Date().getMonth())
@@ -9,8 +9,8 @@ export default function FinanceiroRelatorio({ data, lang = 'pt' }) {
   const lancamentos = data.financeiro  || []
   const orcamentos  = data.orcamentoCategoria || {}
 
-  const lancMes    = lancamentos.filter(l => (l.mes || '').toLowerCase() === mes.toLowerCase())
-  const lancMesAnt = lancamentos.filter(l => (l.mes || '').toLowerCase() === mesAnt.toLowerCase())
+  const lancMes    = lancamentos.filter(l => (mesLancamento(l) || '').toLowerCase() === mes.toLowerCase())
+  const lancMesAnt = lancamentos.filter(l => (mesLancamento(l) || '').toLowerCase() === mesAnt.toLowerCase())
 
   const receitas   = lancMes.filter(l => l.tipo === 'Receita').reduce((s, l) => s + moneyNumber(l.valor), 0)
   const despesas   = lancMes.filter(l => l.tipo === 'Despesa').reduce((s, l) => s + moneyNumber(l.valor), 0)

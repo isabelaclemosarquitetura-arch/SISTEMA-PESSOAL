@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { MESES, fmt, moneyNumber, calcularValorAtualInvestimento, valorRecebidoLancamento, valorPendenteLancamento, isDespesaPaga } from '../lib/finance'
+import { MESES, fmt, moneyNumber, calcularValorAtualInvestimento, valorRecebidoLancamento, valorPendenteLancamento, isDespesaPaga, mesLancamento } from '../lib/finance'
 import { t } from '../lib/i18n'
 
 const HABITOS_DEFAULT = [
@@ -100,7 +100,7 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
   const investimentos = data.investimentos || []
   const configCDI = data.configCDI || { taxaAnual: 0 }
 
-  const lancMes = lancamentos.filter(l => (l.mes || '').toLowerCase() === mesAtual.toLowerCase())
+  const lancMes = lancamentos.filter(l => mesLancamento(l).toLowerCase() === mesAtual.toLowerCase())
   const receitasPrevistasMes = lancMes.filter(l => l.tipo === 'Receita').reduce((s, l) => s + (l.status === 'Recebida' ? moneyNumber(l.valor) : valorPendenteLancamento(l)), 0)
   const despesasPrevistasMes = lancamentos.reduce((s, l) => {
     if (l.tipo !== 'Despesa') return s;
@@ -108,7 +108,7 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
       // Usa o equivalente mensal para planejamento, ignorando o mês de cobrança real
       return s + moneyNumber(l.equivalenteMensal);
     }
-    if ((l.mes || '').toLowerCase() === mesAtual.toLowerCase()) {
+    if ((mesLancamento(l) || '').toLowerCase() === mesAtual.toLowerCase()) {
       return s + moneyNumber(l.valor);
     }
     return s;
@@ -168,7 +168,7 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
   }, [lancMes])
 
   const evolucaoFinanceira = useMemo(() => MESES.map(mes => {
-    const itens = lancamentos.filter(l => (l.mes || '').toLowerCase() === mes.toLowerCase())
+    const itens = lancamentos.filter(l => (mesLancamento(l) || '').toLowerCase() === mes.toLowerCase())
     const receitas = itens.filter(l => l.tipo === 'Receita').reduce((s, l) => s + moneyNumber(l.valor), 0)
     const despesas = itens.filter(l => l.tipo === 'Despesa').reduce((s, l) => s + moneyNumber(l.valor), 0)
     return { mes, receitas, despesas }

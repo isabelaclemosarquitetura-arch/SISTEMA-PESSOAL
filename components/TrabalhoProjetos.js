@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import {
-  fmt, moneyNumber, fmtDataBR, hojeISO, gerarParcelas, mesDeISO
+  fmt, moneyNumber, fmtDataBR, hojeISO, gerarParcelas, mesDeISO, addDaysISO
 } from '../lib/finance'
 
 // ── Constantes ──
@@ -31,15 +31,12 @@ const EMPTY_RECEBIMENTO = {
 
 const EMPTY_GASTO = {
   descricao: '', valor: '', data: '', categoria: 'Impressão',
-  formaPagamento: 'Pix', observacao: '', vincularFinanceiro: false,
+  formaPagamento: 'Pix', observacao: '', pago: true,
 }
 
 // ── Helpers ──
 function addDias(isoDate, dias) {
-  if (!isoDate || !dias) return ''
-  const d = new Date(isoDate + 'T00:00:00')
-  d.setDate(d.getDate() + Number(dias))
-  return d.toISOString().slice(0, 10)
+  return addDaysISO(isoDate, dias)
 }
 
 function calcProgresso(tarefas) {
@@ -112,11 +109,45 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
   const handleSaveProjeto = () => {
     if (!form.nome.trim()) { showFeedback('Nome do projeto é obrigatório.'); return }
     if (editId) {
-      const projetoEditado = { ...(projetos.find(p => p.id === editId) || {}), ...form }
+      const original = projetos.find(p => p.id === editId) || {}
+      const projetoEditado = { ...original, ...form }
       const projetoLabel = `${projetoEditado.codigo || ''}${projetoEditado.codigo ? ' - ' : ''}${projetoEditado.nome}${projetoEditado.cliente ? ` (${projetoEditado.cliente})` : ''}`
-      update({
-        projetos: projetos.map(p => p.id === editId ? projetoEditado : p),
-        financeiro: (data.financeiro || []).map(l => l._projetoId === editId ? {
+
+      // Sincroniza valores dos recebimentos quando o valor contratado muda:
+      // redimensiona proporcionalmente cada parcela e atualiza o Financeiro.
+      const recs = original.recebimentos || []
+      const antigoTotal = recs.reduce((s, r) => s + moneyNumber(r.valor), 0)
+      const novoTotal = moneyNumber(projetoEditado.valorContratado)
+      const arred2 = v => Math.round(v * 100) / 100
+      let recsSincronizados = recs
+      let valorAjustado = false
+
+      if (antigoTotal > 0 && novoTotal >= 0 && Math.abs(novoTotal - antigoTotal) > 0.005) {
+        const fator = novoTotal / antigoTotal
+        recsSincronizados = recs.map(r => ({ ...r, valor: arred2(moneyNumber(r.valor) * fator) }))
+        // ajusta o último para que a soma bata exatamente com o novo total
+        const soma = recsSincronizados.reduce((s, r) => s + moneyNumber(r.valor), 0)
+        const resto = arred2(novoTotal - soma)
+        if (Math.abs(resto) > 0.005 && recsSincronizados.length > 0) {
+          const ultimoIdx = recsSincronizados.length - 1
+          const ultimo = recsSincronizados[ultimoIdx]
+          recsSincronizados[ultimoIdx] = { ...ultimo, valor: arred2(moneyNumber(ultimo.valor) + resto) }
+        }
+        // nunca deixa "recebido" maior que a parcela
+        recsSincronizados = recsSincronizados.map(r => {
+          if (moneyNumber(r.valorRecebido) > moneyNumber(r.valor)) {
+            return { ...r, valorRecebido: moneyNumber(r.valor), status: 'Recebido' }
+          }
+          return r
+        })
+        valorAjustado = true
+      }
+
+      const novosRecebimentos = valorAjustado ? recsSincronizados : recs
+      const finAtualizado = (data.financeiro || []).map(l => {
+        if (l._projetoId !== editId) return l
+        const rec = novosRecebimentos.find(r => r.id === l.id)
+        const atualizado = {
           ...l,
           origem: 'Trabalho',
           descricao: l.tipo === 'Receita'
@@ -127,9 +158,25 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
           _projetoNome: projetoEditado.nome,
           _cliente: projetoEditado.cliente,
           _tipoProjeto: projetoEditado.tipo,
-        } : l)
+        }
+        // reflete o novo valor no lançamento financeiro correspondente
+        if (rec && l.tipo === 'Receita') {
+          atualizado.valor = String(Number(rec.valor).toFixed(2))
+          atualizado.valorOriginal = String(Number(rec.valor).toFixed(2))
+          atualizado.valorRecebido = moneyNumber(rec.valorRecebido) || 0
+          atualizado.status = rec.status === 'Recebido' ? 'Recebida' : (rec.status === 'Parcial' ? 'Parcial' : (Number(rec.valorRecebido) > 0 ? 'Parcial' : l.status))
+          if (atualizado.status === 'Recebida' && !atualizado.dataRecebimento) atualizado.dataRecebimento = rec.dataPagamento || hojeISO()
+        }
+        return atualizado
       })
-      showFeedback('Projeto atualizado!')
+
+      update({
+        projetos: projetos.map(p => p.id === editId ? { ...projetoEditado, recebimentos: novosRecebimentos } : p),
+        financeiro: finAtualizado,
+      })
+      showFeedback(valorAjustado
+        ? 'Projeto atualizado — valores dos recebimentos e Financeiro sincronizados.'
+        : 'Projeto atualizado!')
     } else {
       const projId = String(Date.now())
       const codigo = gerarCodigo(projetoContador)
@@ -607,7 +654,7 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
     const payloadFinanceiro = {
       id: gastoId, tipo: 'Despesa', categoria: 'Trabalho',
       descricao: `${gastoEditado.descricao} - ${projeto.codigo} - ${projeto.nome}`,
-      valor: String(gastoEditado.valor), status: 'Pago', pago: true,
+      valor: String(gastoEditado.valor), status: gastoEditado.pago ? 'Pago' : 'Pendente', pago: !!gastoEditado.pago,
       vencimento: gastoEditado.data || hojeISO(), mes: mesDeISO(gastoEditado.data || hojeISO()),
       formaPagamento: gastoEditado.formaPagamento, cartao: '',
       recorrente: false, recorrenciaGrupoId: '', observacao: gastoEditado.observacao,
@@ -903,7 +950,7 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                 <table>
                   <thead><tr><th>Valor</th><th>Vencimento</th><th>Recebido em</th><th>Forma</th><th>Status</th><th>Obs.</th><th></th></tr></thead>
                   <tbody>
-                    {(projeto.recebimentos || []).sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')).map(r => (
+                    {[...(projeto.recebimentos || [])].sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')).map(r => (
                       <tr key={r.id}>
                       <td style={{ fontWeight: 700, color: 'var(--green)' }}>
                         {fmt(r.status === 'Parcial' ? Math.max(0, moneyNumber(r.valor) - moneyNumber(r.valorRecebido)) : r.valor)}
@@ -979,6 +1026,12 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                     {FORMAS_PAGAMENTO_PROJ.filter(f => f !== 'Parcelado').map(f => <option key={f}>{f}</option>)}
                   </select>
                 </div>
+                <div className="form-group" style={{ maxWidth: 130, justifyContent: 'flex-end' }}>
+                  <label className="checkbox-label" style={{ marginBottom: 0, paddingBottom: 8 }}>
+                    <input type="checkbox" checked={gastoForm.pago !== false} onChange={e => setGastoForm(f => ({ ...f, pago: e.target.checked }))} style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
+                    Já pago
+                  </label>
+                </div>
               </div>
               <div className="form-row">
                 <div className="form-group" style={{ flex: 1 }}>
@@ -1006,7 +1059,7 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                 <table>
                   <thead><tr><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Data</th><th>Forma</th><th>Obs.</th><th></th></tr></thead>
                   <tbody>
-                    {(projeto.gastos || []).sort((a, b) => (b.data || '').localeCompare(a.data || '')).map(g => (
+                    {[...(projeto.gastos || [])].sort((a, b) => (b.data || '').localeCompare(a.data || '')).map(g => (
                       <tr key={g.id}>
                         <td style={{ fontWeight: 500 }}>{g.descricao}</td>
                         <td className="muted-cell">{g.categoria}</td>

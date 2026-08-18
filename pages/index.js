@@ -11,7 +11,7 @@ import Anotacoes from '../components/Anotacoes'
 import Trabalho from '../components/Trabalho'
 import {
   migrarDados, ensureRecorrencias, aplicarPagamentosAutomaticos, aplicarVencidos,
-  DEFAULT_CDI_ANUAL, buscarCDIAnualAtual
+  DEFAULT_CDI_ANUAL, buscarCDIAnualAtual, hojeISO
 } from '../lib/finance'
 
 const TAB_IDS = [
@@ -127,7 +127,7 @@ export default function Home() {
   useEffect(() => {
     if (!data || cdiCheckedRef.current) return
     cdiCheckedRef.current = true
-    const hoje = new Date().toISOString().split('T')[0]
+    const hoje = hojeISO()
     const configCDI = data.configCDI || {}
     if (configCDI.atualizadoEm === hoje) return
     buscarCDIAnualAtual()
@@ -157,7 +157,7 @@ export default function Home() {
     })
     if (urgentes.length === 0) return
 
-    const hojeStr = hoje.toISOString().split('T')[0]
+    const hojeStr = hojeISO()
     const lastNotif = localStorage.getItem('sp_last_notif')
     if (lastNotif === hojeStr) return
 
@@ -236,7 +236,7 @@ export default function Home() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `backup-sistema-pessoal-${new Date().toISOString().split('T')[0]}.json`
+    a.download = `backup-sistema-pessoal-${hojeISO()}.json`
     a.click()
     URL.revokeObjectURL(url)
     setSettingsFeedback(t(lang, 'backupOk'))

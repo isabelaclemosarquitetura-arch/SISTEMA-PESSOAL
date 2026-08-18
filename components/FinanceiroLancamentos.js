@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react'
 import { t } from '../lib/i18n'
 import {
   MESES, CATEGORIAS_RECEITA, CATEGORIAS_DESPESA, FORMAS_PAGAMENTO, TIPOS_RECORRENCIA,
-  fmt, moneyNumber, sugerirCategoria, hojeISO, mesDeISO, fmtDataBR, gerarParcelas,
+  fmt, moneyNumber, sugerirCategoria, hojeISO, mesDeISO, mesLancamento, fmtDataBR, gerarParcelas,
   isDespesaPaga, isReceitaRecebida, isReceitaParcial, valorRecebidoLancamento,
   valorPendenteLancamento, isDespesaVencida, origemLancamento,
 } from '../lib/finance'
 
-const CARTOES_PADRAO = ['Nubank', 'Inter', 'Itaú', 'Santander', 'Caixa', 'Banco do Brasil', 'Outro']
+const CARTOES_PADRAO = ['Nubank', 'Inter', 'Itaú', 'Santander', 'Caixa', 'Banco do Brasil', 'Mercado Pago', 'Outro']
 
 const EMPTY_FORM = {
   mes: '', tipo: 'Despesa', categoria: '', descricao: '', valor: '',
@@ -54,7 +54,19 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
     return Array.from(new Set([...CARTOES_PADRAO, ...cartoesCadastrados, ...usados]))
   }, [lancamentos, cartoesCadastrados])
 
-  const lancMesBase = lancamentos.filter(l => (l.mes || '').toLowerCase() === mesFiltro.toLowerCase())
+  // Opções de "forma de pagamento": além das formas fixas, oferece cada
+  // cartão cadastrado/em uso como atalho direto (ex.: "Cartão Mercado Pago").
+  // Escolher um cartão define automaticamente formaPagamento=Crédito. Isso
+  // permite adicionar novos cartões futuramente sem tocar no código.
+  const formasPagamentoOptions = useMemo(() => {
+    const opcoes = [...FORMAS_PAGAMENTO]
+    cartoesUsados.forEach(c => {
+      if (c && !opcoes.includes(c)) opcoes.push(`Cartão ${c}`)
+    })
+    return opcoes
+  }, [cartoesUsados])
+
+  const lancMesBase = lancamentos.filter(l => mesLancamento(l).toLowerCase() === mesFiltro.toLowerCase())
   const lancMesCartao = cartaoFiltro === '' ? lancMesBase : cartaoFiltro === '__nocard__' ? lancMesBase.filter(l => !l.cartao) : lancMesBase.filter(l => l.cartao === cartaoFiltro)
   
   const lancMesOrigem = origemFiltro === 'Todos'
@@ -71,7 +83,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const aReceber = lancMes.reduce((s, l) => s + valorPendenteLancamento(l), 0)
   const vencidos = lancMes.filter(l => isDespesaVencida(l)).reduce((s, l) => s + moneyNumber(l.valor), 0)
   const mesAnterior = MESES[(mesIndex(mesFiltro) + 11) % 12]
-  const lancMesAnt = lancamentos.filter(l => (l.mes || '').toLowerCase() === mesAnterior.toLowerCase())
+  const lancMesAnt = lancamentos.filter(l => mesLancamento(l).toLowerCase() === mesAnterior.toLowerCase())
   const deltaSaldo = saldoPrevisto - (sum(lancMesAnt, 'Receita') - sum(lancMesAnt, 'Despesa'))
 
   const despesasPorCategoria = useMemo(() => {
@@ -86,7 +98,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
     return Object.entries(totals).map(([cartao, total]) => ({ cartao, total })).sort((a, b) => b.total - a.total)
   }, [lancMesBase])
 
-  const evolucaoMensal = useMemo(() => MESES.map(mes => { const itens = lancamentos.filter(l => (l.mes || '').toLowerCase() === mes.toLowerCase()); return { mes, receitas: sum(itens, 'Receita'), despesas: sum(itens, 'Despesa') } }), [lancamentos])
+  const evolucaoMensal = useMemo(() => MESES.map(mes => { const itens = lancamentos.filter(l => mesLancamento(l).toLowerCase() === mes.toLowerCase()); return { mes, receitas: sum(itens, 'Receita'), despesas: sum(itens, 'Despesa') } }), [lancamentos])
   const maxCategoria = Math.max(1, ...despesasPorCategoria.map(i => i.total))
   const maxEvolucao = Math.max(1, ...evolucaoMensal.flatMap(i => [i.receitas, i.despesas]))
   const cats = form.tipo === 'Receita' ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA
@@ -96,7 +108,17 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const handleField = (k, v) => setForm(f => {
     const next = { ...f, [k]: v }
     if (k === 'tipo') { next.cartao = ''; next.formaPagamento = v === 'Receita' ? '' : 'Dinheiro'; next.status = v === 'Receita' ? 'Prevista' : 'Pendente'; next.parcelado = false; next.pagamentoAutomatico = false; next.projeto = '' }
-    if (k === 'formaPagamento' && v !== 'Crédito') next.cartao = ''
+    if (k === 'vencimento') { next.mes = mesDeISO(v) || f.mes }
+    if (k === 'formaPagamento') {
+      // Atalho direto "Cartão X" → Crédito + cartao automaticamente
+      if (v && !FORMAS_PAGAMENTO.includes(v)) {
+        const nomeCartao = v.replace(/^Cartão\s+/, '')
+        next.formaPagamento = 'Crédito'
+        next.cartao = nomeCartao
+      } else if (v !== 'Crédito') {
+        next.cartao = ''
+      }
+    }
     if (k === 'parcelado' && v) { next.recorrente = false }
     if (k === 'recorrente' && v) { next.parcelado = false }
     if (k === 'descricao' && !f.categoria) { const s = sugerirCategoria(v); if (s && cats.includes(s)) next.categoria = s }
@@ -138,6 +160,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
     const payload = {
       ...form,
       descricao: form.descricao.trim(),
+      mes: mesDeISO(form.vencimento) || form.mes, // mês sempre derivado do vencimento
       cartao: form.tipo === 'Despesa' && form.formaPagamento === 'Crédito' ? form.cartao : '',
       formaPagamento: form.tipo === 'Despesa' ? form.formaPagamento : '',
       origem: projetoRelacionado ? 'Trabalho' : (form.origem || 'Pessoal'),
@@ -233,9 +256,13 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
       _projetoId, _projetoCodigo, _projetoNome, _cliente, _tipoProjeto,
       valorRecebido, dataRecebimento, ...base
     } = l
+    // Duplicar um lançamento de Trabalho vira uma cópia pessoal sem vínculo,
+    // evitando que receitas duplicadas alimentem o projeto por engano.
     update('financeiro', [...lancamentos, {
       ...base,
       id: Date.now(),
+      origem: base.origem === 'Trabalho' ? 'Pessoal' : base.origem,
+      projeto: '',
       status: l.tipo === 'Receita' ? 'Prevista' : 'Pendente',
       pago: false,
       recorrente: false,
@@ -276,7 +303,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
 
   const exportCSV = () => {
     const header = ['Tipo', 'Mês', 'Categoria', 'Descrição', 'Valor', 'Vencimento', 'Parcela', 'Forma Pagamento', 'Cartão', 'Status']
-    const rows = lancMesBase.map(l => [l.tipo, l.mes, l.categoria, l.descricao, moneyNumber(l.valor).toFixed(2).replace('.', ','), fmtDataBR(l.vencimento), l.parcela || '', l.formaPagamento || '', l.cartao || '', l.status])
+    const rows = lancMesBase.map(l => [l.tipo, mesLancamento(l), l.categoria, l.descricao, moneyNumber(l.valor).toFixed(2).replace('.', ','), fmtDataBR(l.vencimento), l.parcela || '', l.formaPagamento || '', l.cartao || '', l.status])
     const csv = [header, ...rows].map(r => r.map(v => `"${(v || '').toString().replace(/"/g, '""')}"`).join(';')).join('\n')
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `lancamentos-${mesFiltro}-${new Date().getFullYear()}.csv`; a.click(); URL.revokeObjectURL(url)
@@ -289,6 +316,55 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const valorParcela = form.parcelado && form.qtdParcelas && Number(form.qtdParcelas) > 0 && Number(form.valor) > 0
     ? (Number(form.valor) / Number(form.qtdParcelas)).toFixed(2)
     : null
+
+  const renderLancRow = (l) => {
+    const isVencido = isDespesaVencida(l)
+    const isEntrada = l.tipo === 'Receita'
+    const isSettled = isEntrada ? isReceitaRecebida(l) : isDespesaPaga(l)
+    const rowClass = isEntrada ? 'row-income' : isVencido ? 'row-overdue' : ''
+    const valorColor = isEntrada ? 'var(--green)' : (isVencido ? 'var(--red)' : 'inherit')
+    const valorPrincipal = isReceitaParcial(l) ? valorPendenteLancamento(l) : moneyNumber(l.valor)
+    return (
+      <tr key={l.id} className={rowClass}>
+        <td><span className={`badge ${l.tipo === 'Receita' ? 'badge-green' : 'badge-red'}`}>{l.tipo}</span></td>
+        <td className="muted-cell">{l.categoria}</td>
+        <td className="muted-cell">{l.tipo === 'Despesa' ? (l.formaPagamento || '-') + (l.cartao ? ` · ${l.cartao}` : '') : '-'}</td>
+        <td className="td-desc">
+          <div className="td-desc-main">{l.descricao}</div>
+          {/* Lançamento de projeto (Trabalho): mostra só código · nome · cliente */}
+          {(l._projetoId || l._projetoCodigo) && (
+            <div className="muted-small td-desc-sub">
+              {[l._projetoCodigo, l._projetoNome, l._cliente].filter(Boolean).join(' · ')}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+            {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <span className="badge badge-blue">Recorrente</span>}
+            {l.pagamentoAutomatico && <span className="badge badge-blue">Auto</span>}
+            {(l.parcelado || l._parcelaGrupoId) && <span className="badge badge-gray">Parcelado</span>}
+            {origemLancamento(l) === 'Trabalho' && <span className="badge badge-gray badge-trabalho">💼 Trabalho</span>}
+          </div>
+        </td>
+        <td style={{ fontWeight: 600, color: valorColor, whiteSpace: 'nowrap' }}>
+          {fmt(valorPrincipal)}
+          {isReceitaParcial(l) && <div className="muted-small">Recebido: {fmt(valorRecebidoLancamento(l))}</div>}
+        </td>
+        <td className="muted-cell" style={{ whiteSpace: 'nowrap' }}>{fmtDataBR(l.vencimento)}</td>
+        <td className="muted-cell" style={{ whiteSpace: 'nowrap' }}>{l.parcela || '—'}</td>
+        <td style={{ whiteSpace: 'nowrap' }}>
+          <label className="checkbox-label" style={{ marginBottom: 0 }}>
+            <input type="checkbox" checked={isSettled} onChange={() => toggleStatus(l)} style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
+            <span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span>
+          </label>
+        </td>
+        <td className="table-actions">
+          <button className="btn btn-ghost btn-sm btn-act" title={t(lang, 'lanc.edit')} onClick={() => handleEdit(l)}>{t(lang, 'lanc.edit')}</button>
+          <button className="btn btn-ghost btn-sm btn-act" title={t(lang, 'lanc.duplicate')} onClick={() => handleDuplicate(l)}>{t(lang, 'lanc.duplicate')}</button>
+          {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <button className="btn btn-ghost btn-sm btn-act" onClick={() => pararRecorrencia(l)}>{t(lang, 'lanc.stopRec')}</button>}
+          <button className="btn btn-danger btn-sm btn-act" title={t(lang, 'lanc.delete')} onClick={() => setDeleteTarget(l)}>{t(lang, 'lanc.delete')}</button>
+        </td>
+      </tr>
+    )
+  }
 
   return (
     <>
@@ -364,7 +440,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
           <div className="card-title">{editId ? t(lang, 'lanc.editTitle') : t(lang, 'lanc.newTitle')}</div>
           {/* Linha 1: Mês, Tipo, Categoria, Descrição, Valor */}
           <div className="form-row" style={{ marginBottom: 10 }}>
-            <div className="form-group" style={{ maxWidth: 140 }}><label>{t(lang, 'lanc.month')}</label><select value={form.mes} onChange={e => handleField('mes', e.target.value)}>{MESES.map(m => <option key={m}>{m}</option>)}</select></div>
+            <div className="form-group" style={{ maxWidth: 150 }}><label>{t(lang, 'lanc.month')}</label><select value={form.vencimento ? mesDeISO(form.vencimento) : form.mes} disabled={!!form.vencimento} onChange={e => handleField('mes', e.target.value)}>{MESES.map(m => <option key={m}>{m}</option>)}</select></div>
             <div className="form-group" style={{ maxWidth: 130 }}><label>{t(lang, 'lanc.type')}</label><select value={form.tipo} onChange={e => handleField('tipo', e.target.value)}><option>Receita</option><option>Despesa</option></select></div>
             <div className="form-group" style={{ maxWidth: 180 }}><label>{t(lang, 'lanc.category')}</label><select value={form.categoria} onChange={e => handleField('categoria', e.target.value)}><option value="">{t(lang, 'lanc.selectCat')}</option>{cats.map(c => <option key={c}>{c}</option>)}</select></div>
             <div className="form-group" style={{ flex: 2 }}><label>{t(lang, 'lanc.description')}</label><input type="text" value={form.descricao} onChange={e => handleField('descricao', e.target.value)} placeholder={t(lang, 'lanc.descPh')} /></div>
@@ -376,7 +452,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
           {/* Linha 2: Data, Forma pagamento, Cartão, Parcelas */}
           <div className="form-row" style={{ marginBottom: 10 }}>
             <div className="form-group" style={{ maxWidth: 150 }}><label>{form.tipo === 'Receita' ? t(lang, 'lanc.expectedDate') : t(lang, 'lanc.dueDate')}</label><input type="date" value={form.vencimento} onChange={e => handleField('vencimento', e.target.value)} /></div>
-            {form.tipo === 'Despesa' && <div className="form-group" style={{ maxWidth: 160 }}><label>{t(lang, 'lanc.payMethod')}</label><select value={form.formaPagamento} onChange={e => handleField('formaPagamento', e.target.value)}>{FORMAS_PAGAMENTO.map(f => <option key={f}>{f}</option>)}</select></div>}
+            {form.tipo === 'Despesa' && <div className="form-group" style={{ maxWidth: 160 }}><label>{t(lang, 'lanc.payMethod')}</label><select value={form.formaPagamento} onChange={e => handleField('formaPagamento', e.target.value)}>{formasPagamentoOptions.map(f => <option key={f}>{f}</option>)}</select></div>}
             {form.tipo === 'Despesa' && form.formaPagamento === 'Crédito' && <div className="form-group" style={{ maxWidth: 160 }}><label>{t(lang, 'lanc.card')}</label><select value={form.cartao} onChange={e => handleField('cartao', e.target.value)}><option value="">{t(lang, 'lanc.selectCard')}</option>{cartoesUsados.map(c => <option key={c}>{c}</option>)}</select></div>}
             
             {form.tipo === 'Receita' && (
@@ -500,53 +576,27 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
         {lancMes.length === 0 ? <p className="muted-small">{t(lang, 'lanc.noneFiltered')}</p> : (
           <div className="table-wrap"><table>
             <thead><tr><th>{t(lang, 'lanc.typeCol')}</th><th>{t(lang, 'lanc.catCol')}</th><th>{t(lang, 'lanc.payCol')}</th><th>{t(lang, 'lanc.descCol')}</th><th>{t(lang, 'lanc.valueCol')}</th><th>{t(lang, 'lanc.dateCol')}</th><th>Parcela</th><th>{t(lang, 'lanc.statusCol')}</th><th></th></tr></thead>
-            <tbody>{lancMes.sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')).map(l => {
-              const isVencido = isDespesaVencida(l)
-              const isEntrada = l.tipo === 'Receita'
-              const isSettled = isEntrada ? isReceitaRecebida(l) : isDespesaPaga(l)
-              const rowClass = isEntrada ? 'row-income' : isVencido ? 'row-overdue' : ''
-              const valorColor = isEntrada ? 'var(--green)' : (isVencido ? 'var(--red)' : 'inherit')
-              const valorPrincipal = isReceitaParcial(l) ? valorPendenteLancamento(l) : moneyNumber(l.valor)
+            <tbody>{(() => {
+              const agrupado = g => lancMes.filter(l => l.tipo === g).sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || ''))
+              const despesas = agrupado('Despesa')
+              const receitas = agrupado('Receita')
               return (
-                <tr key={l.id} className={rowClass}>
-                  <td><span className={`badge ${l.tipo === 'Receita' ? 'badge-green' : 'badge-red'}`}>{l.tipo}</span></td>
-                  <td className="muted-cell">{l.categoria}</td>
-                  <td className="muted-cell">{l.tipo === 'Despesa' ? (l.formaPagamento || '-') + (l.cartao ? ` · ${l.cartao}` : '') : '-'}</td>
-                  <td style={{ fontWeight: 500 }}>
-                    {l.descricao}
-                    {(l._projetoId || l._projetoCodigo) && (
-                      <div className="muted-small" style={{ marginTop: 3 }}>
-                        {[l._projetoCodigo && `${l._projetoCodigo}${l._projetoNome ? ` - ${l._projetoNome}` : ''}`, l._cliente && `Cliente: ${l._cliente}`, l._tipoProjeto && `Tipo: ${l._tipoProjeto}`].filter(Boolean).join(' · ')}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
-                      {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <span className="badge badge-blue">Recorrente</span>}
-                      {l.pagamentoAutomatico && <span className="badge badge-blue">Auto</span>}
-                      {(l.parcelado || l._parcelaGrupoId) && <span className="badge badge-gray">Parcelado</span>}
-                      {origemLancamento(l) === 'Trabalho' && <span className="badge badge-gray" style={{ background: 'var(--blue)22', color: 'var(--blue)', borderColor: 'var(--blue)40' }}>💼 Trabalho</span>}
-                    </div>
-                  </td>
-                  <td style={{ fontWeight: 600, color: valorColor }}>
-                    {fmt(valorPrincipal)}
-                    {isReceitaParcial(l) && <div className="muted-small">Recebido: {fmt(valorRecebidoLancamento(l))}</div>}
-                  </td>
-                  <td className="muted-cell">{fmtDataBR(l.vencimento)}</td>
-                  <td className="muted-cell" style={{ whiteSpace: 'nowrap' }}>{l.parcela || '—'}</td>
-                  <td>
-                    <label className="checkbox-label" style={{ marginBottom: 0 }}>
-                      <input type="checkbox" checked={isSettled} onChange={() => toggleStatus(l)} style={{ accentColor: 'var(--green)', cursor: 'pointer' }} />
-                      <span className={`badge ${statusBadgeClass(l.status)}`}>{l.status}</span>
-                    </label>
-                  </td>
-                  <td className="table-actions" style={{ whiteSpace: 'nowrap', display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(l)}>{t(lang, 'lanc.edit')}</button>
-                    <button className="btn btn-ghost btn-sm" onClick={() => handleDuplicate(l)}>{t(lang, 'lanc.duplicate')}</button>
-                    {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <button className="btn btn-ghost btn-sm" onClick={() => pararRecorrencia(l)}>{t(lang, 'lanc.stopRec')}</button>}
-                    <button className="btn btn-danger btn-sm" onClick={() => setDeleteTarget(l)}>{t(lang, 'lanc.delete')}</button>
-                  </td>
-                </tr>
+                <>
+                  {despesas.length > 0 && (
+                    <>
+                      <tr className="table-section-row"><td colSpan={9}><span className="table-section-label table-section-expense">💸 Despesas <small>{despesas.length}</small></span></td></tr>
+                      {despesas.map(renderLancRow)}
+                    </>
+                  )}
+                  {receitas.length > 0 && (
+                    <>
+                      <tr className="table-section-row"><td colSpan={9}><span className="table-section-label table-section-income">💰 Receitas <small>{receitas.length}</small></span></td></tr>
+                      {receitas.map(renderLancRow)}
+                    </>
+                  )}
+                </>
               )
-            })}</tbody>
+            })()}</tbody>
           </table></div>
         )}
       </div>

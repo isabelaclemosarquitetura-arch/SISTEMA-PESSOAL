@@ -13,7 +13,10 @@ function getMondayOf(date) {
   return d
 }
 function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d }
-function fmtKey(date)   { return date.toISOString().split('T')[0] }
+// Chave do dia em HORÁRIO LOCAL (não UTC): evita que tarefas cadastradas à
+// noite (ex.: 23h no Brasil) "pulem" para o dia seguinte por conversão UTC.
+function pad2(n) { return String(n).padStart(2, '0') }
+function fmtKey(date)   { return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}` }
 function fmtLabel(date, locale = 'pt-BR') { return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }) }
 
 // Compatibilidade: se tasks/checks não existir ou for tamanho menor, expande

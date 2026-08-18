@@ -127,7 +127,7 @@ export default function FinanceiroCartoes({ data, update, lang = 'pt' }) {
                 <div className="card-title" style={{ margin: 0 }}>{cartao.nome}</div>
                 <div className="table-actions">
                   <button className="btn btn-ghost btn-sm" onClick={() => handleEdit(cartao)}>{t(lang,'car.edit')}</button>
-                  <button className="btn btn-danger" onClick={() => handleDelete(cartao.id)}>{t(lang,'car.delete')}</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(cartao.id)}>{t(lang,'car.delete')}</button>
                 </div>
               </div>
               <div className="grid-3" style={{ marginBottom: 14 }}>
