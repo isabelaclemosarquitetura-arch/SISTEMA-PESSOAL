@@ -11,7 +11,7 @@ import Anotacoes from '../components/Anotacoes'
 import Trabalho from '../components/Trabalho'
 import {
   migrarDados, ensureRecorrencias, aplicarPagamentosAutomaticos, aplicarVencidos,
-  DEFAULT_CDI_ANUAL, buscarCDIAnualAtual, aplicarSeedFinanceiro
+  DEFAULT_CDI_ANUAL, buscarCDIAnualAtual
 } from '../lib/finance'
 
 const TAB_IDS = [
@@ -60,6 +60,7 @@ const INITIAL_DATA = {
   anotacoes: [],
   orcamentoCategoria: {},
   saudeAbstinencia: {},
+  seedFinanceiroAplicado: false,
 }
 
 export default function Home() {
@@ -117,10 +118,6 @@ export default function Home() {
     nextData.financeiro = ensureRecorrencias(nextData.financeiro)
     nextData.financeiro = aplicarPagamentosAutomaticos(nextData.financeiro)
     nextData.financeiro = aplicarVencidos(nextData.financeiro)
-
-    // Seed de dados financeiros (só insere o que ainda não existe)
-    nextData.financeiro = aplicarSeedFinanceiro(nextData.financeiro)
-    nextData.financeiro = ensureRecorrencias(nextData.financeiro) // garante recorrências do seed
 
     setData(nextData)
     localStorage.setItem('sp_data', JSON.stringify(nextData))
@@ -229,7 +226,7 @@ export default function Home() {
     let newData = typeof section === 'object'
       ? { ...data, ...section }
       : { ...data, [section]: value }
-    if (typeof section === 'string' && section === 'financeiro') {
+    if ((typeof section === 'string' && section === 'financeiro') || (typeof section === 'object' && section.financeiro)) {
       newData = { ...newData, financeiro: ensureRecorrencias(newData.financeiro) }
     }
     save(newData)

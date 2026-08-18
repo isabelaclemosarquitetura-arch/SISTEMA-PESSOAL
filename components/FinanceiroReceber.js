@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { t } from '../lib/i18n'
-import { fmt, moneyNumber, hojeISO } from '../lib/finance'
+import { fmt, moneyNumber, hojeISO, valorRecebidoLancamento, valorPendenteLancamento } from '../lib/finance'
 
 export default function FinanceiroReceber({ data, update, lang = 'pt' }) {
   const [feedback, setFeedback] = useState('')
@@ -8,16 +8,16 @@ export default function FinanceiroReceber({ data, update, lang = 'pt' }) {
   const hoje = hojeISO()
 
   const receitas = useMemo(() => lancamentos.filter(l => l.tipo === 'Receita'), [lancamentos])
-  const previstas = useMemo(() => receitas.filter(l => l.status === 'Prevista').sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')), [receitas])
+  const previstas = useMemo(() => receitas.filter(l => l.status === 'Prevista' || l.status === 'Parcial').sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')), [receitas])
   const recebidas = useMemo(() => receitas.filter(l => l.status === 'Recebida'), [receitas])
 
-  const totalPrevisto = previstas.reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const totalPrevisto = previstas.reduce((s, l) => s + valorPendenteLancamento(l), 0)
   const atrasadas = previstas.filter(l => l.vencimento && l.vencimento < hoje)
-  const totalAtrasado = atrasadas.reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const totalAtrasado = atrasadas.reduce((s, l) => s + valorPendenteLancamento(l), 0)
   const proximos7dias = previstas.filter(l => l.vencimento && l.vencimento >= hoje && l.vencimento <= addDaysISO(hoje, 7))
   const totalRecebidoMes = recebidas
     .filter(l => (l.dataRecebimento || '').slice(0, 7) === hoje.slice(0, 7))
-    .reduce((s, l) => s + moneyNumber(l.valor), 0)
+    .reduce((s, l) => s + valorRecebidoLancamento(l), 0)
 
   function addDaysISO(iso, dias) {
     const d = new Date(iso)
@@ -31,7 +31,7 @@ export default function FinanceiroReceber({ data, update, lang = 'pt' }) {
   }
 
   const marcarRecebida = (l) => {
-    update('financeiro', lancamentos.map(x => x.id === l.id ? { ...x, status: 'Recebida', dataRecebimento: hoje } : x))
+    update('financeiro', lancamentos.map(x => x.id === l.id ? { ...x, status: 'Recebida', dataRecebimento: hoje, valorRecebido: moneyNumber(x.valorOriginal || x.valor) } : x))
     showFeedback('Recebimento confirmado — saldo e relatórios atualizados.')
   }
 
@@ -93,9 +93,12 @@ export default function FinanceiroReceber({ data, update, lang = 'pt' }) {
                     <tr key={l.id}>
                       <td style={{ fontWeight: 500 }}>{l.descricao}</td>
                       <td className="muted-cell">{l.categoria}</td>
-                      <td style={{ fontWeight: 600, color: 'var(--green)' }}>{fmt(l.valor)}</td>
+                      <td style={{ fontWeight: 600, color: 'var(--green)' }}>
+                        {fmt(valorPendenteLancamento(l))}
+                        {l.status === 'Parcial' && <div className="muted-small">Recebido: {fmt(valorRecebidoLancamento(l))}</div>}
+                      </td>
                       <td className="muted-cell">{l.vencimento}</td>
-                      <td><span className={`badge ${atrasada ? 'badge-red' : 'badge-blue'}`}>{atrasada ? t(lang,'rec.lateBadge') : t(lang,'rec.onTime')}</span></td>
+                      <td><span className={`badge ${l.status === 'Parcial' ? 'badge-blue' : atrasada ? 'badge-red' : 'badge-blue'}`}>{l.status === 'Parcial' ? 'Parcial' : atrasada ? t(lang,'rec.lateBadge') : t(lang,'rec.onTime')}</span></td>
                       <td className="table-actions">
                         <button className="btn btn-primary btn-sm" onClick={() => marcarRecebida(l)}>{t(lang,'rec.markReceived')}</button>
                       </td>

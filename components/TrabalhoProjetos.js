@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react'
-import { fmt, moneyNumber, fmtDataBR, hojeISO, gerarParcelas, mesDeISO } from '../lib/finance'
+import {
+  fmt, moneyNumber, fmtDataBR, hojeISO, gerarParcelas, mesDeISO
+} from '../lib/finance'
 
 // ── Constantes ──
 const TIPOS_PROJETO = ['Residencial', 'Comercial', 'Hotelaria', 'Varejo', 'Escritório', 'Paisagismo', 'Design de Interiores', 'Detalhamentos', '3D']
@@ -8,7 +10,7 @@ const STATUS_TAREFA = ['A fazer', 'Em andamento', 'Concluída', 'Aguardando clie
 const PRIORIDADE_TAREFA = ['Baixa', 'Média', 'Alta', 'Urgente']
 const FORMAS_PAGAMENTO_PROJ = ['À vista', 'Pix', 'Cartão', 'Boleto', 'Transferência', 'Dinheiro', 'Parcelado']
 const CATS_GASTO = ['Impressão', 'Deslocamento', 'Material', 'Renderização', 'Software', 'Terceirização', 'Plotagem', 'Outros']
-const STATUS_RECEBIMENTO = ['Pendente', 'Recebido', 'Vencido']
+const STATUS_RECEBIMENTO = ['Pendente', 'Parcial', 'Recebido', 'Vencido']
 
 const EMPTY_PROJETO = {
   nome: '', cliente: '', tipo: 'Residencial', dataInicio: '', duracaoDias: '',
@@ -109,12 +111,28 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
   const handleSaveProjeto = () => {
     if (!form.nome.trim()) { showFeedback('Nome do projeto é obrigatório.'); return }
     if (editId) {
-      update('projetos', projetos.map(p => p.id === editId ? { ...p, ...form } : p))
+      const projetoEditado = { ...(projetos.find(p => p.id === editId) || {}), ...form }
+      const projetoLabel = `${projetoEditado.codigo || ''}${projetoEditado.codigo ? ' - ' : ''}${projetoEditado.nome}${projetoEditado.cliente ? ` (${projetoEditado.cliente})` : ''}`
+      update({
+        projetos: projetos.map(p => p.id === editId ? projetoEditado : p),
+        financeiro: (data.financeiro || []).map(l => l._projetoId === editId ? {
+          ...l,
+          descricao: l.tipo === 'Receita'
+            ? `${projetoLabel}${l.parcela ? ` - Parcela ${l.parcela}` : ''}`
+            : l.descricao,
+          projeto: projetoEditado.codigo,
+          _projetoCodigo: projetoEditado.codigo,
+          _projetoNome: projetoEditado.nome,
+          _cliente: projetoEditado.cliente,
+          _tipoProjeto: projetoEditado.tipo,
+        } : l)
+      })
       showFeedback('Projeto atualizado!')
     } else {
       const projId = String(Date.now())
+      const codigo = gerarCodigo(projetoContador)
       const novoProj = {
-        ...form, id: projId, codigo: gerarCodigo(projetoContador),
+        ...form, id: projId, codigo,
         criadoEm: hojeISO(), tarefas: [], recebimentos: [], gastos: [],
       }
       
@@ -126,10 +144,11 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
             const baseItem = {
               grupoId: `proj-rec-${projId}`,
               tipo: 'Receita', categoria: 'Recebimento Projeto',
-              descricao: `${form.nome}${form.cliente ? ` (${form.cliente})` : ''}`,
+              descricao: `${codigo} - ${form.nome}${form.cliente ? ` (${form.cliente})` : ''}`,
               formaPagamento: form.formaPagamento, cartao: '',
               observacao: '', recorrente: false, recorrenciaGrupoId: '',
-              pagamentoAutomatico: false, _projetoId: projId,
+              pagamentoAutomatico: false, _projetoId: projId, projeto: codigo,
+              _projetoCodigo: codigo, _projetoNome: form.nome, _cliente: form.cliente, _tipoProjeto: form.tipo,
             }
             const parcelas = gerarParcelas({
                valorTotal: Number(form.valorContratado),
@@ -138,7 +157,7 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
                baseItem
             })
             // Ajustar o status das parcelas
-            const financeiroParcelas = parcelas.map(p => ({ ...p, status: 'Prevista' }))
+            const financeiroParcelas = parcelas.map(p => ({ ...p, status: 'Prevista', descricao: `${p.descricao} - Parcela ${p.parcela}`, valorOriginal: p.valor, valorRecebido: 0 }))
             financeiroUpdates = financeiroParcelas
             
             novosRecebimentos = financeiroParcelas.map(p => ({
@@ -154,13 +173,15 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
             const finId = `proj-rec-${projId}-av`
             const novaReceita = {
               id: finId, tipo: 'Receita', categoria: 'Recebimento Projeto',
-              descricao: `${form.nome}${form.cliente ? ` (${form.cliente})` : ''}`,
+              descricao: `${codigo} - ${form.nome}${form.cliente ? ` (${form.cliente})` : ''}`,
               valor: String(Number(form.valorContratado).toFixed(2)), status: 'Prevista', pago: false,
               vencimento: form.vencimento,
               mes: mesDeISO(form.vencimento),
               dataRecebimento: '',
               recorrente: false, recorrenciaGrupoId: '', formaPagamento: form.formaPagamento,
-              _projetoId: projId,
+              _projetoId: projId, projeto: codigo,
+              _projetoCodigo: codigo, _projetoNome: form.nome, _cliente: form.cliente, _tipoProjeto: form.tipo,
+              valorOriginal: String(Number(form.valorContratado).toFixed(2)), valorRecebido: 0,
             }
             financeiroUpdates = [novaReceita]
             novosRecebimentos = [{
@@ -405,7 +426,7 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
 
 // ── Helper financeiro para listagem ──
 function calcFinanceiro(proj) {
-  const totalRecebido = (proj.recebimentos || []).filter(r => r.status === 'Recebido').reduce((s, r) => s + moneyNumber(r.valor), 0)
+  const totalRecebido = (proj.recebimentos || []).reduce((s, r) => s + (r.status === 'Recebido' ? moneyNumber(r.valor) : r.status === 'Parcial' ? moneyNumber(r.valorRecebido) : 0), 0)
   const totalGasto = (proj.gastos || []).reduce((s, g) => s + moneyNumber(g.valor), 0)
   return { totalRecebido, lucroRealizado: totalRecebido - totalGasto }
 }
@@ -452,7 +473,13 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
     const isEdit = !!editRecId
     const recId = isEdit ? editRecId : `proj-rec-${Date.now()}`
     
-    const recEditado = { ...recForm, id: recId, valor: Number(recForm.valor) }
+    const valorTotal = Number(recForm.valor)
+    const valorRecebido = recForm.status === 'Recebido'
+      ? valorTotal
+      : recForm.status === 'Parcial'
+        ? Math.min(valorTotal, Number(recForm.valorRecebido) || 0)
+        : 0
+    const recEditado = { ...recForm, id: recId, valor: valorTotal, valorRecebido }
     const novoRecs = isEdit ? recs.map(r => r.id === recId ? recEditado : r) : [...recs, recEditado]
 
     const payloadFinanceiro = {
@@ -465,8 +492,11 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
       mes: mesDeISO(recEditado.vencimento || hojeISO()),
       dataRecebimento: recEditado.status === 'Recebido' ? (recEditado.dataPagamento || hojeISO()) : '',
       recorrente: false, recorrenciaGrupoId: '', formaPagamento: recEditado.formaPagamento,
-      _projetoId: projeto.id
+      _projetoId: projeto.id, projeto: projeto.codigo,
+      _projetoCodigo: projeto.codigo, _projetoNome: projeto.nome, _cliente: projeto.cliente, _tipoProjeto: projeto.tipo,
+      valorOriginal: String(recEditado.valor), valorRecebido,
     }
+    if (recEditado.status === 'Parcial') payloadFinanceiro.status = 'Parcial'
 
     let novoFinanceiro = data.financeiro || []
     if (isEdit && novoFinanceiro.find(f => f.id === recId)) {
@@ -487,11 +517,11 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
   const marcarComoRecebido = (rec) => {
     const recId = rec.id
     const dataHj = hojeISO()
-    const recs = (projeto.recebimentos || []).map(r => r.id === recId ? { ...r, status: 'Recebido', dataPagamento: dataHj } : r)
+    const recs = (projeto.recebimentos || []).map(r => r.id === recId ? { ...r, status: 'Recebido', dataPagamento: dataHj, valorRecebido: moneyNumber(r.valor) } : r)
     
     let novoFinanceiro = data.financeiro || []
     if (novoFinanceiro.find(f => f.id === recId)) {
-      novoFinanceiro = novoFinanceiro.map(f => f.id === recId ? { ...f, status: 'Recebida', dataRecebimento: dataHj } : f)
+      novoFinanceiro = novoFinanceiro.map(f => f.id === recId ? { ...f, status: 'Recebida', dataRecebimento: dataHj, valorRecebido: moneyNumber(f.valorOriginal || f.valor) } : f)
     }
 
     update({
@@ -499,6 +529,34 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
       financeiro: novoFinanceiro
     })
     showFeedback('Marcado como recebido!')
+  }
+
+  const marcarComoRecebidoParcial = (rec) => {
+    const valor = Number(window.prompt('Valor recebido parcialmente:', ''))
+    if (!Number.isFinite(valor) || valor <= 0) { showFeedback('Informe um valor recebido válido.'); return }
+    const total = moneyNumber(rec.valor)
+    if (valor >= total) { marcarComoRecebido(rec); return }
+    const dataRecebimento = window.prompt('Data real do recebimento (AAAA-MM-DD):', hojeISO()) || hojeISO()
+    const recs = (projeto.recebimentos || []).map(r => r.id === rec.id ? {
+      ...r,
+      status: 'Parcial',
+      valorRecebido: valor,
+      dataPagamento: dataRecebimento,
+    } : r)
+
+    const novoFinanceiro = (data.financeiro || []).map(f => f.id === rec.id ? {
+      ...f,
+      status: 'Parcial',
+      valorOriginal: String(f.valorOriginal || f.valor),
+      valorRecebido: valor,
+      dataRecebimento,
+    } : f)
+
+    update({
+      projetos: projetos.map(p => p.id === projeto.id ? { ...p, recebimentos: recs } : p),
+      financeiro: novoFinanceiro
+    })
+    showFeedback('Recebimento parcial registrado!')
   }
 
   const excluirRecebimento = (r) => {
@@ -524,12 +582,13 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
 
     const payloadFinanceiro = {
       id: gastoId, tipo: 'Despesa', categoria: 'Trabalho',
-      descricao: `${gastoEditado.descricao} — ${projeto.nome}`,
+      descricao: `${gastoEditado.descricao} - ${projeto.codigo} - ${projeto.nome}`,
       valor: String(gastoEditado.valor), status: 'Pago', pago: true,
       vencimento: gastoEditado.data || hojeISO(), mes: mesDeISO(gastoEditado.data || hojeISO()),
       formaPagamento: gastoEditado.formaPagamento, cartao: '',
       recorrente: false, recorrenciaGrupoId: '', observacao: gastoEditado.observacao,
-      _projetoId: projeto.id
+      _projetoId: projeto.id, projeto: projeto.codigo,
+      _projetoCodigo: projeto.codigo, _projetoNome: projeto.nome, _cliente: projeto.cliente, _tipoProjeto: projeto.tipo,
     }
 
     let novoFinanceiro = data.financeiro || []
@@ -778,6 +837,18 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                     <input type="date" value={recForm.dataPagamento} onChange={e => setRecForm(f => ({ ...f, dataPagamento: e.target.value }))} />
                   </div>
                 )}
+                {recForm.status === 'Parcial' && (
+                  <>
+                    <div className="form-group" style={{ maxWidth: 140 }}>
+                      <label>Valor recebido</label>
+                      <input type="number" min="0" step="0.01" value={recForm.valorRecebido || ''} onChange={e => setRecForm(f => ({ ...f, valorRecebido: e.target.value }))} placeholder="0,00" />
+                    </div>
+                    <div className="form-group" style={{ maxWidth: 155 }}>
+                      <label>Data recebimento</label>
+                      <input type="date" value={recForm.dataPagamento} onChange={e => setRecForm(f => ({ ...f, dataPagamento: e.target.value }))} />
+                    </div>
+                  </>
+                )}
                 <div className="form-group" style={{ maxWidth: 160 }}>
                   <label>Forma pagamento</label>
                   <select value={recForm.formaPagamento} onChange={e => setRecForm(f => ({ ...f, formaPagamento: e.target.value }))}>
@@ -810,19 +881,27 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                   <tbody>
                     {(projeto.recebimentos || []).sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')).map(r => (
                       <tr key={r.id}>
-                        <td style={{ fontWeight: 700, color: 'var(--green)' }}>{fmt(r.valor)}</td>
+                      <td style={{ fontWeight: 700, color: 'var(--green)' }}>
+                        {fmt(r.status === 'Parcial' ? Math.max(0, moneyNumber(r.valor) - moneyNumber(r.valorRecebido)) : r.valor)}
+                        {r.status === 'Parcial' && <div className="muted-small">Recebido: {fmt(r.valorRecebido)}</div>}
+                      </td>
                         <td className="muted-cell">{fmtDataBR(r.vencimento)}</td>
                         <td className="muted-cell">{fmtDataBR(r.dataPagamento)}</td>
                         <td className="muted-cell">{r.formaPagamento}</td>
                         <td>
-                          <span className={`badge ${r.status === 'Recebido' ? 'badge-green' : r.status === 'Vencido' ? 'badge-red' : 'badge-yellow'}`}>{r.status}</span>
+                          <span className={`badge ${r.status === 'Recebido' ? 'badge-green' : r.status === 'Parcial' ? 'badge-blue' : r.status === 'Vencido' ? 'badge-red' : 'badge-yellow'}`}>{r.status}</span>
                         </td>
                         <td className="muted-cell">{r.observacao || '—'}</td>
                         <td className="table-actions">
                           {r.status !== 'Recebido' && (
-                            <button className="btn btn-primary btn-sm" onClick={() => marcarComoRecebido(r)}>
-                              Recebido ✓
-                            </button>
+                            <>
+                              <button className="btn btn-primary btn-sm" onClick={() => marcarComoRecebido(r)}>
+                                Recebido
+                              </button>
+                              <button className="btn btn-ghost btn-sm" onClick={() => marcarComoRecebidoParcial(r)}>
+                                Parcial
+                              </button>
+                            </>
                           )}
                           <button className="btn btn-ghost btn-sm" onClick={() => {
                             setRecForm({ ...EMPTY_RECEBIMENTO, ...r, valor: String(r.valor) })
@@ -935,8 +1014,8 @@ function calcFinanceiroDetalhe(proj) {
   const contratado = moneyNumber(proj.valorContratado)
   const recs = proj.recebimentos || []
   const gastos = proj.gastos || []
-  const totalRecebido = recs.filter(r => r.status === 'Recebido').reduce((s, r) => s + moneyNumber(r.valor), 0)
-  const totalPendente = recs.filter(r => r.status !== 'Recebido').reduce((s, r) => s + moneyNumber(r.valor), 0)
+  const totalRecebido = recs.reduce((s, r) => s + (r.status === 'Recebido' ? moneyNumber(r.valor) : r.status === 'Parcial' ? moneyNumber(r.valorRecebido) : 0), 0)
+  const totalPendente = recs.reduce((s, r) => s + (r.status === 'Recebido' ? 0 : Math.max(0, moneyNumber(r.valor) - moneyNumber(r.valorRecebido))), 0)
   const totalGasto = gastos.reduce((s, g) => s + moneyNumber(g.valor), 0)
   return { contratado, totalRecebido, totalPendente, totalGasto, lucroRealizado: totalRecebido - totalGasto, lucroPrevisto: contratado - totalGasto }
 }

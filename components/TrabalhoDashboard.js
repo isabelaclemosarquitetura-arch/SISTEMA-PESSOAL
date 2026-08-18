@@ -32,8 +32,8 @@ function calcFinanceiroProjeto(proj) {
   const contratado = moneyNumber(proj.valorContratado)
   const recebimentos = proj.recebimentos || []
   const gastos = proj.gastos || []
-  const totalRecebido = recebimentos.filter(r => r.status === 'Recebido').reduce((s, r) => s + moneyNumber(r.valor), 0)
-  const totalPendente = recebimentos.filter(r => r.status !== 'Recebido').reduce((s, r) => s + moneyNumber(r.valor), 0)
+  const totalRecebido = recebimentos.reduce((s, r) => s + (r.status === 'Recebido' ? moneyNumber(r.valor) : r.status === 'Parcial' ? moneyNumber(r.valorRecebido) : 0), 0)
+  const totalPendente = recebimentos.reduce((s, r) => s + (r.status === 'Recebido' ? 0 : Math.max(0, moneyNumber(r.valor) - moneyNumber(r.valorRecebido))), 0)
   const totalGasto = gastos.reduce((s, g) => s + moneyNumber(g.valor), 0)
   const lucroRealizado = totalRecebido - totalGasto
   const lucroPrevisto = contratado - totalGasto
@@ -59,9 +59,9 @@ export default function TrabalhoDashboard({ data, onAbrirProjeto }) {
     return projetos.reduce((s, p) => {
       const recs = (p.recebimentos || []).filter(r => {
         const d = r.dataPagamento || r.vencimento || ''
-        return r.status === 'Recebido' && d.startsWith(`${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}`)
+        return (r.status === 'Recebido' || r.status === 'Parcial') && d.startsWith(`${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}`)
       })
-      return s + recs.reduce((a, r) => a + moneyNumber(r.valor), 0)
+      return s + recs.reduce((a, r) => a + (r.status === 'Recebido' ? moneyNumber(r.valor) : moneyNumber(r.valorRecebido)), 0)
     }, 0)
   }, [projetos, mesAtual, anoAtual])
 
@@ -71,7 +71,7 @@ export default function TrabalhoDashboard({ data, onAbrirProjeto }) {
         const d = r.vencimento || ''
         return d.startsWith(`${anoAtual}-${String(mesAtual + 1).padStart(2, '0')}`)
       })
-      return s + recs.reduce((a, r) => a + moneyNumber(r.valor), 0)
+      return s + recs.reduce((a, r) => a + (r.status === 'Recebido' ? 0 : Math.max(0, moneyNumber(r.valor) - moneyNumber(r.valorRecebido))), 0)
     }, 0)
   }, [projetos, mesAtual, anoAtual])
 
@@ -247,10 +247,10 @@ export default function TrabalhoDashboard({ data, onAbrirProjeto }) {
                   <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => onAbrirProjeto && onAbrirProjeto({ id: r._projetoId })}>
                     <td style={{ fontWeight: 500 }}>{r._projeto}</td>
                     <td className="muted-cell">{r._cliente || '—'}</td>
-                    <td style={{ fontWeight: 700, color: 'var(--green)' }}>{fmt(r.valor)}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--green)' }}>{fmt(r.status === 'Parcial' ? Math.max(0, moneyNumber(r.valor) - moneyNumber(r.valorRecebido)) : r.valor)}</td>
                     <td className="muted-cell">{fmtDataBR(r.vencimento)}</td>
                     <td>
-                      <span className={`badge ${r.status === 'Vencido' ? 'badge-red' : 'badge-yellow'}`}>{r.status}</span>
+                      <span className={`badge ${r.status === 'Parcial' ? 'badge-blue' : r.status === 'Vencido' ? 'badge-red' : 'badge-yellow'}`}>{r.status}</span>
                     </td>
                   </tr>
                 ))}

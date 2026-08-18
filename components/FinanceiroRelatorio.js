@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { t } from '../lib/i18n'
-import { MESES, fmt, moneyNumber } from '../lib/finance'
+import { MESES, fmt, moneyNumber, valorRecebidoLancamento, valorPendenteLancamento, isDespesaPaga } from '../lib/finance'
 
 export default function FinanceiroRelatorio({ data, lang = 'pt' }) {
   const [mesIdx, setMesIdx] = useState(new Date().getMonth())
@@ -15,10 +15,10 @@ export default function FinanceiroRelatorio({ data, lang = 'pt' }) {
   const receitas   = lancMes.filter(l => l.tipo === 'Receita').reduce((s, l) => s + moneyNumber(l.valor), 0)
   const despesas   = lancMes.filter(l => l.tipo === 'Despesa').reduce((s, l) => s + moneyNumber(l.valor), 0)
   const saldo      = receitas - despesas
-  const recebido   = lancMes.filter(l => l.tipo === 'Receita' && l.status === 'Recebida').reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const pago       = lancMes.filter(l => l.tipo === 'Despesa' && l.status === 'Pago').reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const recebido   = lancMes.reduce((s, l) => s + valorRecebidoLancamento(l), 0)
+  const pago       = lancMes.filter(isDespesaPaga).reduce((s, l) => s + moneyNumber(l.valor), 0)
   const pendente   = lancMes.filter(l => l.tipo === 'Despesa' && l.status === 'Pendente').reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const aReceber   = lancMes.filter(l => l.tipo === 'Receita' && l.status === 'Prevista').reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const aReceber   = lancMes.reduce((s, l) => s + valorPendenteLancamento(l), 0)
 
   const receitasAnt = lancMesAnt.filter(l => l.tipo === 'Receita').reduce((s, l) => s + moneyNumber(l.valor), 0)
   const despesasAnt = lancMesAnt.filter(l => l.tipo === 'Despesa').reduce((s, l) => s + moneyNumber(l.valor), 0)
@@ -28,7 +28,7 @@ export default function FinanceiroRelatorio({ data, lang = 'pt' }) {
     const totals = {}
     lancMes.filter(l => l.tipo === 'Despesa').forEach(l => {
       const k = l.categoria || 'Sem categoria'
-      totals[k] = (totals[k] || 0) + moneyNumber(l.valor)
+      totals[k] = (totals[k] || 0) + (l.status === 'Recebida' ? moneyNumber(l.valor) : valorPendenteLancamento(l))
     })
     return Object.entries(totals)
       .map(([cat, total]) => {

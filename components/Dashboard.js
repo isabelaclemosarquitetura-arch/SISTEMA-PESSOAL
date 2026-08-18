@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { MESES, fmt, moneyNumber, calcularValorAtualInvestimento } from '../lib/finance'
+import { MESES, fmt, moneyNumber, calcularValorAtualInvestimento, valorRecebidoLancamento, valorPendenteLancamento, isDespesaPaga } from '../lib/finance'
 import { t } from '../lib/i18n'
 
 const HABITOS_DEFAULT = [
@@ -101,7 +101,7 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
   const configCDI = data.configCDI || { taxaAnual: 0 }
 
   const lancMes = lancamentos.filter(l => (l.mes || '').toLowerCase() === mesAtual.toLowerCase())
-  const receitasPrevistasMes = lancMes.filter(l => l.tipo === 'Receita').reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const receitasPrevistasMes = lancMes.filter(l => l.tipo === 'Receita').reduce((s, l) => s + (l.status === 'Recebida' ? moneyNumber(l.valor) : valorPendenteLancamento(l)), 0)
   const despesasPrevistasMes = lancamentos.reduce((s, l) => {
     if (l.tipo !== 'Despesa') return s;
     if (l.recorrenciaTipo === 'Anual' && l.equivalenteMensal) {
@@ -115,11 +115,11 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
   }, 0)
 
   // ── visão financeira global ──
-  const recebidoTotal = lancamentos.filter(l => l.tipo === 'Receita' && l.status === 'Recebida').reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const pagoTotal = lancamentos.filter(l => l.tipo === 'Despesa' && l.status === 'Pago').reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const recebidoTotal = lancamentos.reduce((s, l) => s + valorRecebidoLancamento(l), 0)
+  const pagoTotal = lancamentos.filter(isDespesaPaga).reduce((s, l) => s + moneyNumber(l.valor), 0)
   const saldoAtual = recebidoTotal - pagoTotal
   const contasAPagar = lancamentos.filter(l => l.tipo === 'Despesa' && l.status === 'Pendente').reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const contasAReceber = lancamentos.filter(l => l.tipo === 'Receita' && l.status === 'Prevista').reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const contasAReceber = lancamentos.reduce((s, l) => s + valorPendenteLancamento(l), 0)
 
   const investimentosCalc = useMemo(() => investimentos.map(item => calcularValorAtualInvestimento(item, configCDI.taxaAnual, today)), [investimentos, configCDI.taxaAnual])
   const investimentosValorAtual = investimentosCalc.reduce((s, c) => s + c.valorAtual, 0)

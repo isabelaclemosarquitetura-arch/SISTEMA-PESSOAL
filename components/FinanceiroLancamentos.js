@@ -3,6 +3,8 @@ import { t } from '../lib/i18n'
 import {
   MESES, CATEGORIAS_RECEITA, CATEGORIAS_DESPESA, FORMAS_PAGAMENTO, TIPOS_RECORRENCIA,
   fmt, moneyNumber, sugerirCategoria, hojeISO, mesDeISO, fmtDataBR, gerarParcelas,
+  isDespesaPaga, isReceitaRecebida, isReceitaParcial, valorRecebidoLancamento,
+  valorPendenteLancamento, isDespesaVencida,
 } from '../lib/finance'
 
 const CARTOES_PADRAO = ['Nubank', 'Inter', 'Itaú', 'Santander', 'Caixa', 'Banco do Brasil', 'Outro']
@@ -16,13 +18,14 @@ const EMPTY_FORM = {
 }
 
 const STATUS_DESPESA = ['Pendente', 'Pago', 'Vencido', 'Pago automaticamente']
-const STATUS_RECEITA = ['Prevista', 'Recebida']
+const STATUS_RECEITA = ['Prevista', 'Parcial', 'Recebida']
 
 function sum(items, tipo) { return items.filter(l => l.tipo === tipo).reduce((s, l) => s + (parseFloat(l.valor) || 0), 0) }
 function mesIndex(nome) { return MESES.findIndex(m => m.toLowerCase() === (nome || '').toLowerCase()) }
 
 function statusBadgeClass(status) {
   if (status === 'Pago' || status === 'Recebida' || status === 'Pago automaticamente') return 'badge-green'
+  if (status === 'Parcial') return 'badge-blue'
   if (status === 'Vencido') return 'badge-red'
   if (status === 'Prevista') return 'badge-blue'
   return 'badge-yellow'
@@ -60,12 +63,12 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const lancMes = busca ? lancMesOrigem.filter(l => l.descricao?.toLowerCase().includes(busca.toLowerCase()) || l.categoria?.toLowerCase().includes(busca.toLowerCase())) : lancMesOrigem
 
   const receitas = sum(lancMes, 'Receita'), despesas = sum(lancMes, 'Despesa'), saldoPrevisto = receitas - despesas
-  const receitasRecebidas = lancMes.filter(l => l.tipo === 'Receita' && l.status === 'Recebida').reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const despesasPagas = lancMes.filter(l => l.tipo === 'Despesa' && (l.status === 'Pago' || l.status === 'Pago automaticamente')).reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const receitasRecebidas = lancMes.reduce((s, l) => s + valorRecebidoLancamento(l), 0)
+  const despesasPagas = lancMes.filter(isDespesaPaga).reduce((s, l) => s + moneyNumber(l.valor), 0)
   const saldoAtual = receitasRecebidas - despesasPagas
   const pendentes = lancMes.filter(l => (l.status === 'Pendente' || l.status === 'Vencido') && l.tipo === 'Despesa').reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const aReceber = lancMes.filter(l => l.status === 'Prevista' && l.tipo === 'Receita').reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const vencidos = lancMes.filter(l => l.status === 'Vencido').reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const aReceber = lancMes.reduce((s, l) => s + valorPendenteLancamento(l), 0)
+  const vencidos = lancMes.filter(l => isDespesaVencida(l)).reduce((s, l) => s + moneyNumber(l.valor), 0)
   const mesAnterior = MESES[(mesIndex(mesFiltro) + 11) % 12]
   const lancMesAnt = lancamentos.filter(l => (l.mes || '').toLowerCase() === mesAnterior.toLowerCase())
   const deltaSaldo = saldoPrevisto - (sum(lancMesAnt, 'Receita') - sum(lancMesAnt, 'Despesa'))
@@ -138,12 +141,39 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
       const original = lancamentos.find(l => l.id === editId)
       let aplicarFuturos = false
       if (original?.recorrenciaGrupoId) aplicarFuturos = window.confirm(t(lang, 'lanc.confirmRecurEdit'))
-      update('financeiro', lancamentos.map(l => {
+      const financeiroAtualizado = lancamentos.map(l => {
         if (l.id === editId) return { ...payload, id: editId }
         if (aplicarFuturos && l.recorrenciaGrupoId === original.recorrenciaGrupoId && l.vencimento > original.vencimento)
           return { ...l, valor: payload.valor, categoria: payload.categoria, descricao: payload.descricao, formaPagamento: payload.formaPagamento, cartao: payload.cartao, observacao: payload.observacao }
         return l
-      }))
+      })
+      if (original?._projetoId) {
+        update({
+          financeiro: financeiroAtualizado,
+          projetos: (data.projetos || []).map(p => p.id === original._projetoId ? {
+            ...p,
+            recebimentos: (p.recebimentos || []).map(r => r.id === editId ? {
+              ...r,
+              valor: moneyNumber(payload.valor),
+              vencimento: payload.vencimento,
+              status: payload.status === 'Recebida' ? 'Recebido' : payload.status === 'Parcial' ? 'Parcial' : 'Pendente',
+              dataPagamento: payload.dataRecebimento || '',
+              formaPagamento: payload.formaPagamento || r.formaPagamento,
+              valorRecebido: moneyNumber(payload.valorRecebido),
+            } : r),
+            gastos: (p.gastos || []).map(g => g.id === editId ? {
+              ...g,
+              descricao: payload.descricao,
+              valor: moneyNumber(payload.valor),
+              data: payload.vencimento,
+              categoria: payload.categoria === 'Trabalho' ? g.categoria : payload.categoria,
+              formaPagamento: payload.formaPagamento || g.formaPagamento,
+            } : g)
+          } : p)
+        })
+      } else {
+        update('financeiro', financeiroAtualizado)
+      }
       showFeedback(t(lang, 'lanc.updated'))
     } else {
       const novoId = Date.now()
@@ -201,8 +231,25 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
       const ns = (l.status === 'Pago' || l.status === 'Pago automaticamente') ? 'Pendente' : 'Pago'
       update('financeiro', lancamentos.map(x => x.id === l.id ? { ...x, status: ns, pago: ns === 'Pago' } : x))
     } else {
-      const ns = l.status === 'Recebida' ? 'Prevista' : 'Recebida'
-      update('financeiro', lancamentos.map(x => x.id === l.id ? { ...x, status: ns, dataRecebimento: ns === 'Recebida' ? hojeISO() : '' } : x))
+      const ns = isReceitaRecebida(l) ? 'Prevista' : 'Recebida'
+      const dataRecebimento = ns === 'Recebida' ? hojeISO() : ''
+      const financeiroAtualizado = lancamentos.map(x => x.id === l.id ? { ...x, status: ns, dataRecebimento, valorRecebido: ns === 'Recebida' ? moneyNumber(x.valorOriginal || x.valor) : 0 } : x)
+      if (l._projetoId) {
+        update({
+          financeiro: financeiroAtualizado,
+          projetos: (data.projetos || []).map(p => p.id === l._projetoId ? {
+            ...p,
+            recebimentos: (p.recebimentos || []).map(r => r.id === l.id ? {
+              ...r,
+              status: ns === 'Recebida' ? 'Recebido' : 'Pendente',
+              dataPagamento: dataRecebimento,
+              valorRecebido: ns === 'Recebida' ? moneyNumber(r.valor) : 0,
+            } : r)
+          } : p)
+        })
+      } else {
+        update('financeiro', financeiroAtualizado)
+      }
     }
   }
   const pararRecorrencia = (l) => { update('financeiro', lancamentos.map(x => x.recorrenciaGrupoId === l.recorrenciaGrupoId ? { ...x, recorrenciaAtiva: false } : x)); showFeedback(t(lang, 'lanc.recurrStopped')) }
@@ -415,16 +462,24 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
           <div className="table-wrap"><table>
             <thead><tr><th>{t(lang, 'lanc.typeCol')}</th><th>{t(lang, 'lanc.catCol')}</th><th>{t(lang, 'lanc.payCol')}</th><th>{t(lang, 'lanc.descCol')}</th><th>{t(lang, 'lanc.valueCol')}</th><th>{t(lang, 'lanc.dateCol')}</th><th>Parcela</th><th>{t(lang, 'lanc.statusCol')}</th><th></th></tr></thead>
             <tbody>{lancMes.sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || '')).map(l => {
-              const isSettled = (l.tipo === 'Despesa' && (l.status === 'Pago' || l.status === 'Pago automaticamente')) || (l.tipo === 'Receita' && l.status === 'Recebida')
-              const isVencido = l.status === 'Vencido'
-              const valorColor = l.tipo === 'Receita' ? 'var(--green)' : (isVencido ? 'var(--red)' : 'inherit')
+              const isVencido = isDespesaVencida(l)
+              const isEntrada = l.tipo === 'Receita'
+              const isSettled = isEntrada ? isReceitaRecebida(l) : isDespesaPaga(l)
+              const rowClass = isEntrada ? 'row-income' : isVencido ? 'row-overdue' : ''
+              const valorColor = isEntrada ? 'var(--green)' : (isVencido ? 'var(--red)' : 'inherit')
+              const valorPrincipal = isReceitaParcial(l) ? valorPendenteLancamento(l) : moneyNumber(l.valor)
               return (
-                <tr key={l.id} className={isSettled ? 'row-settled' : isVencido ? 'row-overdue' : 'row-pending'}>
+                <tr key={l.id} className={rowClass}>
                   <td><span className={`badge ${l.tipo === 'Receita' ? 'badge-green' : 'badge-red'}`}>{l.tipo}</span></td>
                   <td className="muted-cell">{l.categoria}</td>
                   <td className="muted-cell">{l.tipo === 'Despesa' ? (l.formaPagamento || '-') + (l.cartao ? ` · ${l.cartao}` : '') : '-'}</td>
                   <td style={{ fontWeight: 500 }}>
                     {l.descricao}
+                    {(l._projetoId || l._projetoCodigo) && (
+                      <div className="muted-small" style={{ marginTop: 3 }}>
+                        {[l._projetoCodigo && `${l._projetoCodigo}${l._projetoNome ? ` - ${l._projetoNome}` : ''}`, l._cliente && `Cliente: ${l._cliente}`, l._tipoProjeto && `Tipo: ${l._tipoProjeto}`].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
                       {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <span className="badge badge-blue">Recorrente</span>}
                       {l.pagamentoAutomatico && <span className="badge badge-blue">Auto</span>}
@@ -432,7 +487,10 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
                       {(l._projetoId || l.categoria === 'Recebimento Projeto' || l.categoria === 'Trabalho') && <span className="badge badge-gray" style={{ background: 'var(--blue)22', color: 'var(--blue)', borderColor: 'var(--blue)40' }}>💼 Trabalho</span>}
                     </div>
                   </td>
-                  <td style={{ fontWeight: 600, color: valorColor }}>{fmt(l.valor)}</td>
+                  <td style={{ fontWeight: 600, color: valorColor }}>
+                    {fmt(valorPrincipal)}
+                    {isReceitaParcial(l) && <div className="muted-small">Recebido: {fmt(valorRecebidoLancamento(l))}</div>}
+                  </td>
                   <td className="muted-cell">{fmtDataBR(l.vencimento)}</td>
                   <td className="muted-cell" style={{ whiteSpace: 'nowrap' }}>{l.parcela || '—'}</td>
                   <td>
