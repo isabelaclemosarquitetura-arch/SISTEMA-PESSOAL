@@ -135,10 +135,20 @@ function Cronometro({ segundos, onReset }) {
 }
 
 // Modal "Como fazer"
-function ModalComoFazer({ exercicio, onFechar }) {
+function ModalComoFazer({ exercicio, onFechar, onImagemChange }) {
   const [cronometroAtivo, setCronometroAtivo] = useState(false)
+  const [editandoImagem, setEditandoImagem] = useState(false)
+  const [urlImagem, setUrlImagem] = useState(exercicio.gif || '')
 
   if (!exercicio) return null
+
+  const handleSalvarImagem = () => {
+    if (onImagemChange) {
+      onImagemChange(exercicio.id, urlImagem)
+    }
+    setEditandoImagem(false)
+  }
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
       onClick={onFechar}>
@@ -153,16 +163,45 @@ function ModalComoFazer({ exercicio, onFechar }) {
         </div>
 
         {/* GIF / demonstração */}
-        {exercicio.gif && (
-          <div style={{ marginBottom: 16, borderRadius: 12, overflow: 'hidden', background: 'var(--bg)', display: 'flex', justifyContent: 'center' }}>
+        {exercicio.gif && !editandoImagem && (
+          <div style={{ marginBottom: 16, borderRadius: 12, overflow: 'hidden', background: 'var(--bg)', display: 'flex', justifyContent: 'center', position: 'relative' }}>
             <img src={exercicio.gif} alt={exercicio.nome} style={{ maxWidth: '100%', maxHeight: 220, objectFit: 'contain', borderRadius: 12 }}
               onError={e => { e.target.style.display = 'none' }} />
+            <button 
+              className="btn btn-ghost btn-sm" 
+              onClick={() => { setEditandoImagem(true); setUrlImagem(exercicio.gif) }}
+              style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(255,255,255,0.9)', borderRadius: 8, padding: '4px 8px', fontSize: 11 }}
+            >
+              ✏️ Editar
+            </button>
           </div>
         )}
-        {!exercicio.gif && (
+        {editandoImagem && (
+          <div style={{ marginBottom: 16, borderRadius: 12, background: 'var(--bg)', padding: '16px' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>URL da imagem demonstrativa:</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input 
+                type="text" 
+                value={urlImagem} 
+                onChange={e => setUrlImagem(e.target.value)}
+                placeholder="https://..."
+                style={{ flex: 1, padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12 }}
+              />
+              <button className="btn btn-primary btn-sm" onClick={handleSalvarImagem}>Salvar</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setEditandoImagem(false)}>Cancelar</button>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6 }}>
+              Use apenas imagens de exercícios sem equipamento (peso corporal)
+            </div>
+          </div>
+        )}
+        {!exercicio.gif && !editandoImagem && (
           <div style={{ marginBottom: 16, borderRadius: 12, background: 'var(--bg)', padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
             <div style={{ fontSize: 32, marginBottom: 4 }}>🏋️</div>
-            <div style={{ fontSize: 12 }}>Sem demonstração visual</div>
+            <div style={{ fontSize: 12, marginBottom: 8 }}>Sem demonstração visual</div>
+            <button className="btn btn-ghost btn-sm" onClick={() => setEditandoImagem(true)}>
+              + Adicionar imagem
+            </button>
           </div>
         )}
 
@@ -343,6 +382,22 @@ export default function Exercicios({ data, update, lang = 'pt' }) {
     ? Math.round((exerciciosConcluidos.length / treinoDia.exercicios.length) * 100)
     : null
 
+  const handleImagemChange = (exercicioId, urlImagem) => {
+    const novaRotina = { ...rotina }
+    Object.keys(novaRotina).forEach(dia => {
+      if (novaRotina[dia].exercicios) {
+        novaRotina[dia].exercicios = novaRotina[dia].exercicios.map(ex => {
+          if (ex.id === exercicioId) {
+            return { ...ex, gif: urlImagem || undefined }
+          }
+          return ex
+        })
+      }
+    })
+    update('exercicios', { ...exerciciosData, rotina: novaRotina })
+    showFeedback('Imagem atualizada!')
+  }
+
   const SUBTABS_EX = [
     { id: 'treino', label: '🏋️ Treino do Dia' },
     { id: 'historico', label: '📋 Histórico' },
@@ -352,7 +407,7 @@ export default function Exercicios({ data, update, lang = 'pt' }) {
 
   return (
     <>
-      {modalExercicio && <ModalComoFazer exercicio={modalExercicio} onFechar={() => setModalExercicio(null)} />}
+      {modalExercicio && <ModalComoFazer exercicio={modalExercicio} onFechar={() => setModalExercicio(null)} onImagemChange={handleImagemChange} />}
       {feedback && <div className="toast-inline" style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 1000 }}>{feedback}</div>}
 
       <div className="page-header">

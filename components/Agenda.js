@@ -76,14 +76,8 @@ export default function Agenda({ data, update, lang = 'pt' }) {
   const weekLabel = `${fmtLabel(weekStart, locale)} – ${fmtLabel(addDays(weekStart, 6), locale)}`
   
   // Navegação mensal
-  const prevMonth = () => {
-    if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1) }
-    else { setCalMonth(calMonth - 1) }
-  }
-  const nextMonth = () => {
-    if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1) }
-    else { setCalMonth(calMonth + 1) }
-  }
+  const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) } else setCalMonth(m => m - 1) }
+  const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) } else setCalMonth(m => m + 1) }
   const goTodayMonth = () => { setCalMonth(today.getMonth()); setCalYear(today.getFullYear()) }
   
   // Gerar dias do mês
@@ -198,8 +192,6 @@ export default function Agenda({ data, update, lang = 'pt' }) {
     return cells
   }, [calYear, calMonth])
 
-  const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) } else setCalMonth(m => m - 1) }
-  const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) } else setCalMonth(m => m + 1) }
   const selectedDay = calSelected ? normAgendaDay(data.agenda[calSelected]) : null
 
   const renderEvento = (key, ev) => {
@@ -372,24 +364,36 @@ export default function Agenda({ data, update, lang = 'pt' }) {
               const isToday = fmtKey(date) === fmtKey(today)
               const total = day.eventos.length
               const feitas = day.eventos.filter(e => e.concluida).length
+              const hasNotas = day.notas && day.notas.trim()
               return (
                 <div key={key} className={`day-col ${isToday ? 'today' : ''}`}>
-                  <div className="day-name">{label}</div>
-                  <div className="day-date">{date.getDate()}</div>
-                  {total > 0 && (
-                    <div style={{ fontSize: 10, color: feitas === total ? 'var(--green)' : 'var(--text-muted)', marginBottom: 10, fontWeight: 600 }}>
-                      {feitas}/{total} ✓
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                  <div className="day-header">
+                    <div className="day-name">{label}</div>
+                    <div className="day-date">{date.getDate()}</div>
+                    {total > 0 && (
+                      <div className="day-progress" style={{ color: feitas === total ? 'var(--green)' : 'var(--text-muted)' }}>
+                        {feitas}/{total}
+                      </div>
+                    )}
+                  </div>
+                  <div className="day-events">
                     {day.eventos.map(ev => renderEvento(key, ev))}
                   </div>
                   {formKey === key ? renderForm(key) : (
-                    <button className="task-add-btn" onClick={() => abrirForm(key)}>+ Novo</button>
+                    <button className="task-add-btn" onClick={() => abrirForm(key)}>+ {t(lang, 'agenda.addTask')}</button>
                   )}
-                  <textarea value={day.notas} placeholder={t(lang, 'agenda.notesPlaceholder')}
+                  {hasNotas && (
+                    <div className="day-notes-preview" onClick={() => abrirForm(key)}>
+                      📝
+                    </div>
+                  )}
+                  <textarea 
+                    value={day.notas} 
+                    placeholder={t(lang, 'agenda.notesPlaceholder')}
                     onChange={e => updateNotas(key, e.target.value)}
-                    style={{ marginTop: 12, fontSize: 12, minHeight: 50, color: 'var(--text-muted)' }} />
+                    className="day-notes"
+                    style={{ display: hasNotas && formKey !== key ? 'none' : 'block' }}
+                  />
                 </div>
               )
             })}

@@ -2,15 +2,6 @@ import { useMemo } from 'react'
 import { MESES, fmt, moneyNumber, calcularValorAtualInvestimento, valorRecebidoLancamento, valorPendenteLancamento, isDespesaPaga, mesLancamento } from '../lib/finance'
 import { t } from '../lib/i18n'
 
-const HABITOS_DEFAULT = [
-  'Beber 2L de água',
-  'Exercício físico',
-  'Leitura 30 min',
-  'Meditação',
-  'Dormir até 23h',
-  'Comer saudável',
-]
-
 function fmtKey(date) {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
@@ -50,7 +41,7 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
 
   const habitosLista = Array.isArray(data.habitosLista) && data.habitosLista.length
     ? data.habitosLista
-    : HABITOS_DEFAULT
+    : ['Beber 2L de água', 'Exercício físico', 'Leitura 30 min', 'Meditação', 'Dormir até 23h', 'Comer saudável']
 
   const agendaHoje = data.agenda[todayKey] || { tasks: [], checks: [], notas: '' }
   const tarefasHoje = (agendaHoje.tasks || []).filter(t => t.trim()).length
@@ -128,17 +119,24 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
   }, 0)
 
   // ── visão financeira global ──
+  // Saldo Atual: dinheiro EFETIVAMENTE RECEBIDO (não subtrai pagamentos)
   const recebidoTotal = lancamentos.reduce((s, l) => s + valorRecebidoLancamento(l), 0)
-  const pagoTotal = lancamentos.filter(isDespesaPaga).reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const saldoAtual = recebidoTotal - pagoTotal
+  const saldoAtual = recebidoTotal
+  
+  // Saldo Previsto: considera receitas recebidas + a receber - despesas pagas - a pagar
+  const receitasPrevistasTotal = lancamentos.filter(l => l.tipo === 'Receita').reduce((s, l) => s + moneyNumber(l.valor), 0)
+  const despesasPagasTotal = lancamentos.filter(isDespesaPaga).reduce((s, l) => s + moneyNumber(l.valor), 0)
   const contasAPagar = lancamentos.filter(l => l.tipo === 'Despesa' && l.status === 'Pendente').reduce((s, l) => s + moneyNumber(l.valor), 0)
   const contasAReceber = lancamentos.reduce((s, l) => s + valorPendenteLancamento(l), 0)
+  const saldoPrevisto = receitasPrevistasTotal - despesasPagasTotal - contasAPagar
 
   const investimentosCalc = useMemo(() => investimentos.map(item => calcularValorAtualInvestimento(item, configCDI.taxaAnual, today)), [investimentos, configCDI.taxaAnual])
   const investimentosValorAtual = investimentosCalc.reduce((s, c) => s + c.valorAtual, 0)
   const totalInvestido = investimentos.reduce((s, i) => s + moneyNumber(i.valorInvestido), 0)
   const aporteMensalPlanejado = investimentos.reduce((s, i) => s + moneyNumber(i.aporteMensal), 0)
   const saldoMensal = receitasPrevistasMes - despesasPrevistasMes
+  // Patrimônio: saldo mensal projetado + valor atual dos investimentos
+  // Não é afetado por pagamentos passados ou recebimentos futuros não realizados
   const patrimonioTotal = saldoMensal + investimentosValorAtual
 
   const habitosHoje = data.habitos[todayKey] || {}
@@ -161,9 +159,16 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
       const key = fmtKey(d)
       const dia = data.agenda[key]
       if (dia) {
+        // Tarefas manuais (tasks/checks)
         (dia.tasks || []).forEach((t, idx) => {
           if (t.trim() && !(dia.checks || [])[idx]) {
             res.push({ label: t, data: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }) })
+          }
+        })
+        // Tarefas vinculadas a projetos (eventos)
+        (dia.eventos || []).forEach(ev => {
+          if (ev.tipo === 'projeto' && !ev.concluida) {
+            res.push({ label: ev.texto, data: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }), projeto: ev._projetoNome })
           }
         })
       }

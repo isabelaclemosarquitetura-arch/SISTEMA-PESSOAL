@@ -102,8 +102,8 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
 
   const receitas = sum(lancMes, 'Receita'), despesas = sum(lancMes, 'Despesa'), saldoPrevisto = receitas - despesas
   const receitasRecebidas = lancMes.reduce((s, l) => s + valorRecebidoLancamento(l), 0)
-  const despesasPagas = lancMes.filter(isDespesaPaga).reduce((s, l) => s + moneyNumber(l.valor), 0)
-  const saldoAtual = receitasRecebidas - despesasPagas
+  // Saldo Atual: dinheiro EFETIVAMENTE RECEBIDO (não subtrai pagamentos)
+  const saldoAtual = receitasRecebidas
   const pendentes = lancMes.filter(l => (l.status === 'Pendente' || l.status === 'Vencido') && l.tipo === 'Despesa').reduce((s, l) => s + moneyNumber(l.valor), 0)
   const aReceber = lancMes.reduce((s, l) => s + valorPendenteLancamento(l), 0)
   const vencidos = lancMes.filter(l => isDespesaVencida(l)).reduce((s, l) => s + moneyNumber(l.valor), 0)

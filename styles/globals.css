@@ -1154,16 +1154,19 @@ tr.row-income td:first-child { border-left: 2px solid rgba(45,146,82,0.35); }
 .week-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .day-col {
   background: var(--white);
   border-radius: var(--radius-md);
-  padding: 14px 12px;
+  padding: 10px 8px;
   border: 1px solid var(--border);
   box-shadow: var(--card-shadow);
   transition: box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  min-height: 180px;
 }
 
 .day-col:hover {
@@ -1176,6 +1179,15 @@ tr.row-income td:first-child { border-left: 2px solid rgba(45,146,82,0.35); }
   box-shadow: 0 2px 10px rgba(201,169,110,0.15);
 }
 
+.day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
 .day-name {
   font-size: 10px;
   font-weight: 700;
@@ -1185,13 +1197,50 @@ tr.row-income td:first-child { border-left: 2px solid rgba(45,146,82,0.35); }
 }
 
 .day-date {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text);
-  margin: 2px 0 10px;
 }
 
 .day-col.today .day-date { color: var(--accent); }
+
+.day-progress {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.day-events {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.day-notes-preview {
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 0;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.day-notes-preview:hover {
+  opacity: 1;
+}
+
+.day-notes {
+  font-size: 11px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  resize: none;
+  min-height: 40px;
+  max-height: 60px;
+  margin-top: 4px;
+}
 
 .task-input {
   display: flex;
