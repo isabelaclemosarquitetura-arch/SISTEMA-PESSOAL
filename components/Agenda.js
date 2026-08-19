@@ -21,13 +21,13 @@ function fmtLabel(date, locale = 'pt-BR') { return date.toLocaleDateString(local
 
 // Compatibilidade: se tasks/checks não existir ou for tamanho menor, expande
 function normDay(day) {
-  const tasks  = Array.isArray(day?.tasks)  ? [...day.tasks]  : []
-  const checks = Array.isArray(day?.checks) ? [...day.checks] : []
-  // Garante que tasks e checks têm o mesmo tamanho mínimo de 5
+  const tasks  = Array.isArray(day?.tasks) ? [...day.tasks]  : []
+  const checks = Array.isArray(day.checks) ? [...day.checks] : []
+  // Garante que tasks e checks tenham o mesmo tamanho (mínimo 5)
   const len = Math.max(5, tasks.length, checks.length)
   while (tasks.length  < len) tasks.push('')
   while (checks.length < len) checks.push(false)
-  return { tasks, checks, notas: day?.notas || '' }
+  return { tasks, checks: [...checks], notas: day?.notas || '' }
 }
 
 const EMPTY_DAY = () => normDay(null)
@@ -72,7 +72,7 @@ export default function Agenda({ data, update, lang = 'pt' }) {
     const day = getDay(key)
     update('agenda', {
       ...data.agenda,
-      [key]: { ...day, tasks: [...day.tasks, ''], checks: [...day.checks, false] }
+      [key]: { ...day, tasks: [...day.tasks, { priority: 'normal', due: null }], checks: [...day.checks, false] }
     })
   }
 
