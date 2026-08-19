@@ -13,6 +13,33 @@ function pct(done, total) {
   return total > 0 ? Math.round((done / total) * 100) : 0
 }
 
+// Normaliza dados de agenda para compatibilidade entre formato antigo (tasks/checks) e novo (eventos)
+function normAgendaDay(dayData) {
+  if (!dayData) return { eventos: [], notas: '' }
+  let eventos = Array.isArray(dayData.eventos) ? [...dayData.eventos] : []
+  
+  if (Array.isArray(dayData.tasks)) {
+    dayData.tasks.forEach((t, i) => {
+      let txt = ''
+      if (typeof t === 'string') txt = t.trim()
+      else if (t && typeof t === 'object') txt = (t.nome || t.texto || '').trim()
+      
+      if (txt) {
+        eventos.push({
+          id: `mig-${Date.now()}-${i}`,
+          texto: txt,
+          concluida: !!dayData.checks?.[i],
+          tipo: 'tarefa',
+          prioridade: (typeof t === 'object' && t.priority) ? t.priority : 'Média',
+          horario: '', periododia: ''
+        })
+      }
+    })
+  }
+  
+  return { eventos, notas: dayData.notas || '' }
+}
+
 // Calcula taxa mensal composta a partir da taxa anual (%)
 function taxaMensal(taxaAnualPct) {
   return Math.pow(1 + (Number(taxaAnualPct) || 0) / 100, 1 / 12) - 1
@@ -43,9 +70,9 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
     ? data.habitosLista
     : ['Beber 2L de água', 'Exercício físico', 'Leitura 30 min', 'Meditação', 'Dormir até 23h', 'Comer saudável']
 
-  const agendaHoje = data.agenda[todayKey] || { tasks: [], checks: [], notas: '' }
-  const tarefasHoje = (agendaHoje.tasks || []).filter(t => t.trim()).length
-  const feitas = (agendaHoje.checks || []).filter(Boolean).length
+  const agendaHojeNorm = normAgendaDay(data.agenda[todayKey])
+  const tarefasHoje = agendaHojeNorm.eventos.length
+  const feitas = agendaHojeNorm.eventos.filter(e => e.concluida).length
 
   // ── Resumo semanal (seg → hoje) ──
   const resumoSemana = useMemo(() => {
@@ -56,12 +83,11 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
       const d = new Date(seg); d.setDate(d.getDate() + i)
       if (d > today) break
       const key = fmtKey(d)
-      const dia = data.agenda[key]
-      if (dia?.tasks) {
-        const tasks = Array.isArray(dia.tasks) ? dia.tasks : []
-        const checks = Array.isArray(dia.checks) ? dia.checks : []
-        tasks.forEach((t, idx) => { if (t.trim()) { tarefasTotais++; if (checks[idx]) tarefasFeitas++ } })
-      }
+      const dia = normAgendaDay(data.agenda[key])
+      dia.eventos.forEach(ev => {
+        tarefasTotais++
+        if (ev.concluida) tarefasFeitas++
+      })
       const hab = data.habitos[key] || {}
       habitosDias += habitosLista.filter(h => hab[h]).length
       habitosTotaisDias += habitosLista.length
@@ -157,21 +183,16 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
       const d = new Date(today)
       d.setDate(d.getDate() + i)
       const key = fmtKey(d)
-      const dia = data.agenda[key]
-      if (dia) {
-        // Tarefas manuais (tasks/checks)
-        (dia.tasks || []).forEach((t, idx) => {
-          if (t.trim() && !(dia.checks || [])[idx]) {
-            res.push({ label: t, data: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }) })
-          }
-        })
-        // Tarefas vinculadas a projetos (eventos)
-        (dia.eventos || []).forEach(ev => {
-          if (ev.tipo === 'projeto' && !ev.concluida) {
-            res.push({ label: ev.texto, data: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }), projeto: ev._projetoNome })
-          }
-        })
-      }
+      const dia = normAgendaDay(data.agenda[key])
+      dia.eventos.forEach(ev => {
+        if (!ev.concluida) {
+          res.push({ 
+            label: ev.texto, 
+            data: d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+            projeto: ev._projetoNome 
+          })
+        }
+      })
     }
     return res.slice(0, 8)
   }, [data.agenda])
@@ -329,14 +350,14 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
           <div className="progress-bar" style={{ marginBottom: 14 }}>
             <div className="progress-fill" style={{ width: `${pct(feitas, tarefasHoje)}%` }} />
           </div>
-          {agendaHoje.tasks.filter(t => t.trim()).length === 0 ? (
+          {agendaHojeNorm.eventos.length === 0 ? (
             <p className="muted-small">{t(lang, 'dash.noTasksToday')}</p>
-          ) : agendaHoje.tasks.map((t, i) => t.trim() ? (
-            <div key={i} className="dash-task-row">
-              <span className={`dash-task-dot ${agendaHoje.checks[i] ? 'done' : ''}`} />
-              <span style={{ fontSize: 13, textDecoration: agendaHoje.checks[i] ? 'line-through' : 'none', color: agendaHoje.checks[i] ? 'var(--text-muted)' : 'var(--text)' }}>{t}</span>
+          ) : agendaHojeNorm.eventos.map((ev, i) => (
+            <div key={ev.id || i} className="dash-task-row">
+              <span className={`dash-task-dot ${ev.concluida ? 'done' : ''}`} />
+              <span style={{ fontSize: 13, textDecoration: ev.concluida ? 'line-through' : 'none', color: ev.concluida ? 'var(--text-muted)' : 'var(--text)' }}>{ev.texto}</span>
             </div>
-          ) : null)}
+          ))}
         </div>
 
         <div className="card" onClick={() => setTab('agenda')} style={{ cursor: 'pointer' }}>
