@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
-  fmt, moneyNumber, fmtDataBR, hojeISO, gerarParcelas, mesDeISO, addDaysISO
+  fmt, moneyNumber, fmtDataBR, hojeISO, gerarParcelas, mesDeISO, addDaysISO,
+  sincronizarTarefasNaAgenda, PERIODOS_DIA
 } from '../lib/finance'
 
 // ── Constantes ──
@@ -22,6 +23,7 @@ const EMPTY_PROJETO = {
 const EMPTY_TAREFA = {
   nome: '', descricao: '', status: 'A fazer', prioridade: 'Média',
   dataInicio: '', dataFim: '', dependeDe: '',
+  horario: '', horarioFim: '', periododia: ''
 }
 
 const EMPTY_RECEBIMENTO = {
@@ -274,9 +276,22 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
         _cliente: '',
         _tipoProjeto: '',
       } : l)
+    // Limpar agenda
+    let novaAgenda = { ...(data.agenda || {}) }
+    Object.keys(novaAgenda).forEach(key => {
+      const dia = novaAgenda[key]
+      if (dia && Array.isArray(dia.eventos)) {
+        const evs = dia.eventos.filter(ev => ev._projetoId !== proj.id)
+        if (evs.length !== dia.eventos.length) {
+          novaAgenda[key] = { ...dia, eventos: evs }
+        }
+      }
+    })
+
     update({
       projetos: projetos.filter(p => p.id !== proj.id),
       financeiro: financeiroAtualizado,
+      agenda: novaAgenda
     })
     setProjetoParaExcluir(null)
     showFeedback('Projeto excluído.')
@@ -289,9 +304,15 @@ export default function TrabalhoProjetos({ data, update, lang, projetoSelecionad
     setView('form')
   }
 
-  // ── Atualizar subseções do projeto ──
   const updateProjeto = (id, campo, valor) => {
-    update('projetos', projetos.map(p => p.id === id ? { ...p, [campo]: valor } : p))
+    let novosProjetos = projetos.map(p => p.id === id ? { ...p, [campo]: valor } : p)
+    if (campo === 'tarefas') {
+      const projAtualizado = novosProjetos.find(p => p.id === id)
+      const novaAgenda = sincronizarTarefasNaAgenda(data.agenda || {}, projAtualizado)
+      update({ projetos: novosProjetos, agenda: novaAgenda })
+    } else {
+      update('projetos', novosProjetos)
+    }
   }
 
   // ── LISTAGEM ──
@@ -784,6 +805,23 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                   <label>Data término</label>
                   <input type="date" value={tarefaForm.dataFim} onChange={e => setTarefaForm(f => ({ ...f, dataFim: e.target.value }))} />
                 </div>
+                <div className="form-group" style={{ maxWidth: 120 }}>
+                  <label>Horário</label>
+                  <input type="time" value={tarefaForm.horario} onChange={e => setTarefaForm(f => ({ ...f, horario: e.target.value }))} />
+                </div>
+                <div className="form-group" style={{ maxWidth: 120 }}>
+                  <label>Horário Fim</label>
+                  <input type="time" value={tarefaForm.horarioFim} onChange={e => setTarefaForm(f => ({ ...f, horarioFim: e.target.value }))} />
+                </div>
+                <div className="form-group" style={{ maxWidth: 130 }}>
+                  <label>Período</label>
+                  <select value={tarefaForm.periododia} onChange={e => setTarefaForm(f => ({ ...f, periododia: e.target.value }))}>
+                    <option value="">Nenhum...</option>
+                    {PERIODOS_DIA.map(p => <option key={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="form-row" style={{ marginBottom: 10 }}>
                 <div className="form-group" style={{ flex: 1 }}>
                   <label>Descrição</label>
                   <input type="text" value={tarefaForm.descricao} onChange={e => setTarefaForm(f => ({ ...f, descricao: e.target.value }))} placeholder="Detalhes da tarefa..." />
@@ -814,11 +852,17 @@ function ProjetoDetalhe({ projeto, projetos, data, update, updateProjeto, onVolt
                           {atrasada && <span className="badge badge-red" style={{ fontSize: 11 }}>⚠ Atrasada</span>}
                         </div>
                         {tarefa.descricao && <div className="muted-small" style={{ marginTop: 2 }}>{tarefa.descricao}</div>}
-                        {(tarefa.dataInicio || tarefa.dataFim) && (
-                          <div className="muted-small" style={{ marginTop: 2 }}>
-                            {tarefa.dataInicio && `Início: ${fmtDataBR(tarefa.dataInicio)}`}
-                            {tarefa.dataInicio && tarefa.dataFim && ' → '}
-                            {tarefa.dataFim && `Término: ${fmtDataBR(tarefa.dataFim)}`}
+                        {(tarefa.dataInicio || tarefa.dataFim || tarefa.horario || tarefa.periododia) && (
+                          <div className="muted-small" style={{ marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
+                            {(tarefa.dataInicio || tarefa.dataFim) && (
+                              <span>
+                                {tarefa.dataInicio && `📅 ${fmtDataBR(tarefa.dataInicio)}`}
+                                {tarefa.dataInicio && tarefa.dataFim && ' → '}
+                                {tarefa.dataFim && `${fmtDataBR(tarefa.dataFim)}`}
+                              </span>
+                            )}
+                            {tarefa.horario && <span>🕒 {tarefa.horario}{tarefa.horarioFim ? ` - ${tarefa.horarioFim}` : ''}</span>}
+                            {tarefa.periododia && <span className="periodo-badge">{tarefa.periododia}</span>}
                           </div>
                         )}
                       </div>

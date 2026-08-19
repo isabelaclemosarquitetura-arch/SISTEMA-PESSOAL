@@ -3295,3 +3295,47 @@ select:disabled {
 @media (max-width: 640px) {
   .main { overflow-x: hidden; }
 }
+
+/* --- Melhorias e Acentos Dourados --- */
+.priority-badge {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.prio-baixa { background: var(--border); color: var(--text); }
+.prio-média { background: rgba(59, 130, 246, 0.1); color: var(--blue); }
+.prio-alta { background: rgba(234, 179, 8, 0.15); color: var(--yellow); }
+.prio-urgente { background: rgba(239, 68, 68, 0.1); color: var(--red); }
+
+.agenda-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  position: relative;
+  overflow: hidden;
+}
+
+.agenda-event.from-project {
+  border-left: 3px solid var(--accent);
+}
+
+.periodo-badge {
+  background: rgba(201, 169, 110, 0.15);
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .periodo-badge {
+  background: rgba(201, 169, 110, 0.2);
+}
+

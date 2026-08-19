@@ -100,16 +100,29 @@ export default function Dashboard({ data, update, setTab, lang = 'pt' }) {
   const investimentos = data.investimentos || []
   const configCDI = data.configCDI || { taxaAnual: 0 }
 
-  const lancMes = lancamentos.filter(l => mesLancamento(l).toLowerCase() === mesAtual.toLowerCase())
+  const anoAtual = today.getFullYear().toString()
+  const lancMes = lancamentos.filter(l => 
+    mesLancamento(l).toLowerCase() === mesAtual.toLowerCase() &&
+    (l.vencimento ? l.vencimento.startsWith(anoAtual) : true)
+  )
   const receitasPrevistasMes = lancMes.filter(l => l.tipo === 'Receita').reduce((s, l) => s + (l.status === 'Recebida' ? moneyNumber(l.valor) : valorPendenteLancamento(l)), 0)
   const despesasPrevistasMes = lancamentos.reduce((s, l) => {
     if (l.tipo !== 'Despesa') return s;
     if (l.recorrenciaTipo === 'Anual' && l.equivalenteMensal) {
-      // Usa o equivalente mensal para planejamento, ignorando o mês de cobrança real
-      return s + moneyNumber(l.equivalenteMensal);
+      // Para evitar somar o equivalente anual múltiplas vezes de anos diferentes,
+      // idealmente deveria pegar apenas os ativos do ano atual. Mas mantendo a lógica:
+      // Se for a instância do ano atual (usaremos uma aproximação: l.vencimento começa com ano atual)
+      const anoAtual = today.getFullYear().toString();
+      if (l.vencimento && l.vencimento.startsWith(anoAtual)) {
+        return s + moneyNumber(l.equivalenteMensal);
+      }
+      return s;
     }
     if ((mesLancamento(l) || '').toLowerCase() === mesAtual.toLowerCase()) {
-      return s + moneyNumber(l.valor);
+      const anoAtual = today.getFullYear().toString();
+      if (l.vencimento && l.vencimento.startsWith(anoAtual)) {
+        return s + moneyNumber(l.valor);
+      }
     }
     return s;
   }, 0)

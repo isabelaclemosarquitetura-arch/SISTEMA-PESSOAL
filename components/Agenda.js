@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react'
 import { t, DIAS_LABEL_EN, DIAS_CAL_EN, MESES_EN_FULL } from '../lib/i18n'
+import { sincronizarTarefasNaAgenda, PERIODOS_DIA } from '../lib/finance'
 
 const DIAS_LABEL_PT  = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
 const DIAS_CAL_PT    = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 const MESES_PT       = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const PRIORIDADES = ['Baixa', 'Média', 'Alta', 'Urgente']
 
 function getMondayOf(date) {
   const d = new Date(date)
@@ -13,24 +15,37 @@ function getMondayOf(date) {
   return d
 }
 function addDays(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d }
-// Chave do dia em HORÁRIO LOCAL (não UTC): evita que tarefas cadastradas à
-// noite (ex.: 23h no Brasil) "pulem" para o dia seguinte por conversão UTC.
 function pad2(n) { return String(n).padStart(2, '0') }
 function fmtKey(date)   { return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}` }
 function fmtLabel(date, locale = 'pt-BR') { return date.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }) }
 
-// Compatibilidade: se tasks/checks não existir ou for tamanho menor, expande
-function normDay(day) {
-  const tasks  = Array.isArray(day?.tasks) ? [...day.tasks]  : []
-  const checks = Array.isArray(day.checks) ? [...day.checks] : []
-  // Garante que tasks e checks tenham o mesmo tamanho (mínimo 5)
-  const len = Math.max(5, tasks.length, checks.length)
-  while (tasks.length  < len) tasks.push('')
-  while (checks.length < len) checks.push(false)
-  return { tasks, checks: [...checks], notas: day?.notas || '' }
+function normAgendaDay(dayData) {
+  if (!dayData) return { eventos: [], notas: '' }
+  let eventos = Array.isArray(dayData.eventos) ? [...dayData.eventos] : []
+  
+  if (Array.isArray(dayData.tasks)) {
+    dayData.tasks.forEach((t, i) => {
+      let txt = ''
+      if (typeof t === 'string') txt = t.trim()
+      else if (t && typeof t === 'object') txt = (t.nome || t.texto || '').trim()
+      
+      if (txt) {
+        eventos.push({
+          id: `mig-${Date.now()}-${i}`,
+          texto: txt,
+          concluida: !!dayData.checks?.[i],
+          tipo: 'tarefa',
+          prioridade: (typeof t === 'object' && t.priority) ? t.priority : 'Média',
+          horario: '', periododia: ''
+        })
+      }
+    })
+  }
+  
+  return { eventos, notas: dayData.notas || '' }
 }
 
-const EMPTY_DAY = () => normDay(null)
+const EMPTY_EVENTO = { texto: '', horario: '', periododia: '', prioridade: 'Média' }
 
 export default function Agenda({ data, update, lang = 'pt' }) {
   const DIAS_LABEL     = lang === 'en' ? DIAS_LABEL_EN  : DIAS_LABEL_PT
@@ -39,75 +54,39 @@ export default function Agenda({ data, update, lang = 'pt' }) {
   const locale         = lang === 'en' ? 'en-US'        : 'pt-BR'
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  const [view, setView]             = useState('semana') // 'semana' | 'mes'
-  const [weekStart, setWeekStart]   = useState(getMondayOf(today))
-  const [calYear,  setCalYear]      = useState(today.getFullYear())
-  const [calMonth, setCalMonth]     = useState(today.getMonth())
-  const [calSelected, setCalSelected] = useState(null) // key do dia selecionado no calendário
+  const [view, setView] = useState('semana')
+  const [weekStart, setWeekStart] = useState(getMondayOf(today))
+  const [calYear, setCalYear] = useState(today.getFullYear())
+  const [calMonth, setCalMonth] = useState(today.getMonth())
+  const [calSelected, setCalSelected] = useState(null)
   const [showBacklog, setShowBacklog] = useState(true)
 
-  const days = DIAS_LABEL.map((label, i) => {  // depends on lang
+  const [formKey, setFormKey] = useState(null)
+  const [eventoForm, setEventoForm] = useState({ ...EMPTY_EVENTO })
+  const [editId, setEditId] = useState(null)
+
+  const days = DIAS_LABEL.map((label, i) => {
     const date = addDays(weekStart, i)
     return { label, date, key: fmtKey(date) }
   })
-
-  const getDay = (key) => normDay(data.agenda[key])
-
-  // Atualiza texto de uma tarefa
-  const updateTask = (key, idx, value) => {
-    const day = getDay(key)
-    const tasks = [...day.tasks]; tasks[idx] = value
-    update('agenda', { ...data.agenda, [key]: { ...day, tasks } })
-  }
-
-  // Alterna check de uma tarefa
-  const toggleCheck = (key, idx) => {
-    const day = getDay(key)
-    const checks = [...day.checks]; checks[idx] = !checks[idx]
-    update('agenda', { ...data.agenda, [key]: { ...day, checks } })
-  }
-
-  // Adiciona nova tarefa vazia ao dia
-  const addTask = (key) => {
-    const day = getDay(key)
-    update('agenda', {
-      ...data.agenda,
-      [key]: { ...day, tasks: [...day.tasks, { priority: 'normal', due: null }], checks: [...day.checks, false] }
-    })
-  }
-
-  // Remove tarefa pelo índice
-  const removeTask = (key, idx) => {
-    const day = getDay(key)
-    const tasks  = day.tasks.filter((_, i) => i !== idx)
-    const checks = day.checks.filter((_, i) => i !== idx)
-    // Mantém mínimo de 1 linha vazia
-    if (tasks.length === 0) { tasks.push(''); checks.push(false) }
-    update('agenda', { ...data.agenda, [key]: { ...day, tasks, checks } })
-  }
-
-  const updateNotas = (key, value) => {
-    const day = getDay(key)
-    update('agenda', { ...data.agenda, [key]: { ...day, notas: value } })
-  }
 
   const prevWeek  = () => setWeekStart(addDays(weekStart, -7))
   const nextWeek  = () => setWeekStart(addDays(weekStart,  7))
   const goToday   = () => setWeekStart(getMondayOf(today))
   const weekLabel = `${fmtLabel(weekStart, locale)} – ${fmtLabel(addDays(weekStart, 6), locale)}`
 
-  // Backlog: tarefas não concluídas de dias anteriores a hoje
+  // Backlog: atrasados até ontem
   const backlog = useMemo(() => {
     const todayISO = fmtKey(today)
     const res = []
-    Object.entries(data.agenda).forEach(([key, dia]) => {
-      if (key >= todayISO || !dia?.tasks) return
-      const norm = normDay(dia)
-      norm.tasks.forEach((t, idx) => {
-        if (t.trim() && !norm.checks[idx]) {
+    Object.entries(data.agenda || {}).forEach(([key, dia]) => {
+      if (key >= todayISO) return
+      const norm = normAgendaDay(dia)
+      norm.eventos.forEach(ev => {
+        if (!ev.concluida && ev.tipo !== 'projeto') {
           const d = new Date(key + 'T00:00:00')
           res.push({
-            key, taskIdx: idx, label: t,
+            key, evento: ev,
             dataLabel: d.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' }),
             diasAtras: Math.round((today - d) / 86400000),
           })
@@ -115,19 +94,65 @@ export default function Agenda({ data, update, lang = 'pt' }) {
       })
     })
     return res.sort((a, b) => b.key.localeCompare(a.key))
-  }, [data.agenda])
+  }, [data.agenda, today, locale])
 
-  const concludeBacklog = (key, taskIdx) => {
-    const day = getDay(key)
-    const checks = [...day.checks]; checks[taskIdx] = true
-    update('agenda', { ...data.agenda, [key]: { ...day, checks } })
+  const toggleConcluida = (key, evento) => {
+    if (evento._projetoId) {
+      const projetos = [...(data.projetos || [])]
+      const proj = projetos.find(p => p.id === evento._projetoId)
+      if (proj) {
+        const tarefas = [...(proj.tarefas || [])]
+        const tIdx = tarefas.findIndex(t => t.id === evento._tarefaId)
+        if (tIdx >= 0) {
+          const novoStatus = tarefas[tIdx].status === 'Concluída' ? 'A fazer' : 'Concluída'
+          tarefas[tIdx] = { ...tarefas[tIdx], status: novoStatus }
+          const novoProj = { ...proj, tarefas }
+          const novosProjetos = projetos.map(p => p.id === proj.id ? novoProj : p)
+          const novaAgenda = sincronizarTarefasNaAgenda(data.agenda, novoProj)
+          update({ projetos: novosProjetos, agenda: novaAgenda })
+          return
+        }
+      }
+    }
+    const day = normAgendaDay(data.agenda[key])
+    const eventos = day.eventos.map(e => e.id === evento.id ? { ...e, concluida: !e.concluida } : e)
+    update('agenda', { ...data.agenda, [key]: { ...day, eventos, tasks: [], checks: [] } })
   }
 
-  // ── Calendário mensal ──
+  const handleSaveEvento = () => {
+    if (!eventoForm.texto.trim()) return
+    const day = normAgendaDay(data.agenda[formKey])
+    let novosEventos = [...day.eventos]
+    if (editId) {
+      novosEventos = novosEventos.map(e => e.id === editId ? { ...e, ...eventoForm } : e)
+    } else {
+      novosEventos.push({ ...eventoForm, id: `ev-${Date.now()}`, concluida: false, tipo: 'tarefa' })
+    }
+    update('agenda', { ...data.agenda, [formKey]: { ...day, eventos: novosEventos, tasks: [], checks: [] } })
+    setFormKey(null); setEditId(null); setEventoForm({ ...EMPTY_EVENTO })
+  }
+
+  const removeEvento = (key, id) => {
+    const day = normAgendaDay(data.agenda[key])
+    const eventos = day.eventos.filter(e => e.id !== id)
+    update('agenda', { ...data.agenda, [key]: { ...day, eventos, tasks: [], checks: [] } })
+  }
+
+  const updateNotas = (key, value) => {
+    const day = normAgendaDay(data.agenda[key])
+    update('agenda', { ...data.agenda, [key]: { ...day, notas: value, tasks: [], checks: [] } })
+  }
+
+  const abrirForm = (key, ev = null) => {
+    setFormKey(key)
+    if (ev) { setEditId(ev.id); setEventoForm({ ...ev }) }
+    else { setEditId(null); setEventoForm({ ...EMPTY_EVENTO }) }
+  }
+
   const calDays = useMemo(() => {
     const firstDay = new Date(calYear, calMonth, 1)
-    const startDow = firstDay.getDay() // 0=Dom
-    const offset = startDow === 0 ? 6 : startDow - 1 // alinha na segunda
+    const startDow = firstDay.getDay()
+    const offset = startDow === 0 ? 6 : startDow - 1
     const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate()
     const cells = []
     for (let i = 0; i < offset; i++) cells.push(null)
@@ -137,8 +162,67 @@ export default function Agenda({ data, update, lang = 'pt' }) {
 
   const prevMonth = () => { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1) } else setCalMonth(m => m - 1) }
   const nextMonth = () => { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1) } else setCalMonth(m => m + 1) }
+  const selectedDay = calSelected ? normAgendaDay(data.agenda[calSelected]) : null
 
-  const selectedDay = calSelected ? normDay(data.agenda[calSelected]) : null
+  const renderEvento = (key, ev) => {
+    const isProj = ev.tipo === 'projeto'
+    const atrs = ev.dataFim && ev.dataFim < fmtKey(today) && !ev.concluida
+    return (
+      <div key={ev.id} className={`agenda-event ${isProj ? 'from-project' : ''}`} style={{ opacity: ev.concluida ? 0.6 : 1 }}>
+        <input type="checkbox" checked={ev.concluida} onChange={() => toggleConcluida(key, ev)} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 500, fontSize: 13, textDecoration: ev.concluida ? 'line-through' : 'none' }}>
+              {ev.texto}
+            </span>
+            <span className={`priority-badge prio-${ev.prioridade?.toLowerCase()}`}>{ev.prioridade}</span>
+            {isProj && <span className="badge badge-blue" style={{ fontSize: 9 }}>{ev._projetoCodigo}</span>}
+            {atrs && <span className="badge badge-red" style={{ fontSize: 9 }}>Atrasada</span>}
+          </div>
+          {(ev.horario || ev.periododia) && (
+            <div className="muted-small" style={{ fontSize: 11, display: 'flex', gap: 6 }}>
+              {ev.horario && <span>🕒 {ev.horario}{ev.horarioFim ? ` - ${ev.horarioFim}` : ''}</span>}
+              {ev.periododia && <span className="periodo-badge">{ev.periododia}</span>}
+            </div>
+          )}
+        </div>
+        {!isProj && (
+          <div className="table-actions">
+            <button className="btn btn-ghost btn-sm" onClick={() => abrirForm(key, ev)} style={{ minWidth: 0, padding: 4 }}>✏️</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => removeEvento(key, ev.id)} style={{ minWidth: 0, padding: 4, color: 'var(--red)' }}>✕</button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderForm = (key) => (
+    <div className="card" style={{ padding: 12, marginBottom: 8, background: '#faf9f7', border: '1px solid var(--accent)' }}>
+      <div className="form-row" style={{ gap: 8, marginBottom: 8 }}>
+        <div className="form-group" style={{ flex: 2, minWidth: '100%' }}>
+          <input type="text" autoFocus value={eventoForm.texto} onChange={e => setEventoForm(f => ({ ...f, texto: e.target.value }))} placeholder="Ex: Dentista, Reunião..." style={{ fontSize: 13, padding: '6px 10px' }} />
+        </div>
+        <div className="form-group" style={{ maxWidth: 90 }}>
+          <input type="time" value={eventoForm.horario} onChange={e => setEventoForm(f => ({ ...f, horario: e.target.value }))} style={{ fontSize: 12, padding: '6px' }} />
+        </div>
+        <div className="form-group" style={{ maxWidth: 110 }}>
+          <select value={eventoForm.periododia} onChange={e => setEventoForm(f => ({ ...f, periododia: e.target.value }))} style={{ fontSize: 12, padding: '6px' }}>
+            <option value="">Período...</option>
+            {PERIODOS_DIA.map(p => <option key={p}>{p}</option>)}
+          </select>
+        </div>
+        <div className="form-group" style={{ maxWidth: 100 }}>
+          <select value={eventoForm.prioridade} onChange={e => setEventoForm(f => ({ ...f, prioridade: e.target.value }))} style={{ fontSize: 12, padding: '6px' }}>
+            {PRIORIDADES.map(p => <option key={p}>{p}</option>)}
+          </select>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+        <button className="btn btn-ghost btn-sm" onClick={() => setFormKey(null)}>Cancelar</button>
+        <button className="btn btn-primary btn-sm" onClick={handleSaveEvento}>Salvar</button>
+      </div>
+    </div>
+  )
 
   return (
     <>
@@ -153,7 +237,6 @@ export default function Agenda({ data, update, lang = 'pt' }) {
         </div>
       </div>
 
-      {/* Painel de backlog */}
       {backlog.length > 0 && (
         <div className="card" style={{ marginBottom: 16, borderLeft: '4px solid var(--red)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showBacklog ? 12 : 0 }}>
@@ -170,9 +253,10 @@ export default function Agenda({ data, update, lang = 'pt' }) {
               {backlog.map((item, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, minWidth: 90 }}>{item.dataLabel}</span>
-                  <span style={{ fontSize: 13, flex: 1 }}>{item.label}</span>
+                  <span style={{ fontSize: 13, flex: 1 }}>{item.evento.texto}</span>
+                  <span className="priority-badge">{item.evento.prioridade}</span>
                   <span className="muted-small">{item.diasAtras}{t(lang, 'agenda.dAgo')}</span>
-                  <button className="btn btn-ghost btn-sm" onClick={() => concludeBacklog(item.key, item.taskIdx)}>{t(lang, 'agenda.complete')}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => toggleConcluida(item.key, item.evento)}>{t(lang, 'agenda.complete')}</button>
                 </div>
               ))}
             </div>
@@ -181,7 +265,6 @@ export default function Agenda({ data, update, lang = 'pt' }) {
       )}
 
       {view === 'mes' ? (
-        /* ── VISÃO MENSAL ── */
         <>
           <div className="week-nav">
             <button onClick={prevMonth}>‹</button>
@@ -194,23 +277,17 @@ export default function Agenda({ data, update, lang = 'pt' }) {
           </div>
 
           <div className="cal-grid">
-            {DIAS_LABEL_CAL.map(d => (
-              <div key={d} className="cal-header-cell">{d}</div>
-            ))}
+            {DIAS_LABEL_CAL.map(d => <div key={d} className="cal-header-cell">{d}</div>)}
             {calDays.map((date, i) => {
               if (!date) return <div key={`empty-${i}`} className="cal-cell cal-cell-empty" />
               const key = fmtKey(date)
-              const dia = normDay(data.agenda[key])
-              const total  = dia.tasks.filter(t => t.trim()).length
-              const feitas = dia.checks.filter(Boolean).length
+              const dia = normAgendaDay(data.agenda[key])
+              const total = dia.eventos.length
+              const feitas = dia.eventos.filter(e => e.concluida).length
               const isToday = key === fmtKey(today)
               const isSelected = key === calSelected
               return (
-                <div
-                  key={key}
-                  className={`cal-cell ${isToday ? 'cal-today' : ''} ${isSelected ? 'cal-selected' : ''}`}
-                  onClick={() => setCalSelected(isSelected ? null : key)}
-                >
+                <div key={key} className={`cal-cell ${isToday ? 'cal-today' : ''} ${isSelected ? 'cal-selected' : ''}`} onClick={() => setCalSelected(isSelected ? null : key)}>
                   <div className="cal-day-num">{date.getDate()}</div>
                   {total > 0 && (
                     <div className="cal-task-dots">
@@ -219,118 +296,66 @@ export default function Agenda({ data, update, lang = 'pt' }) {
                       ))}
                     </div>
                   )}
-                  {total > 0 && (
-                    <div className="cal-task-count">{feitas}/{total}</div>
-                  )}
+                  {total > 0 && <div className="cal-task-count">{feitas}/{total}</div>}
                 </div>
               )
             })}
           </div>
 
-          {/* Painel do dia selecionado */}
           {calSelected && selectedDay && (
             <div className="card" style={{ marginTop: 16 }}>
-              <div className="card-title">
+              <div className="card-title" style={{ marginBottom: 16 }}>
                 {new Date(calSelected + 'T00:00:00').toLocaleDateString(locale, { weekday: 'long', day: '2-digit', month: 'long' })}
               </div>
-              {selectedDay.tasks.map((task, i) => (
-                <div key={i} className="task-input">
-                  <input type="checkbox" checked={selectedDay.checks[i]}
-                    onChange={() => toggleCheck(calSelected, i)}
-                    style={{ width: 14, height: 14, accentColor: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }} />
-                  <input type="text" value={task}
-                    placeholder={`${t(lang, 'agenda.task')} ${i + 1}`}
-                    onChange={e => updateTask(calSelected, i, e.target.value)}
-                    style={{ textDecoration: selectedDay.checks[i] ? 'line-through' : 'none', color: selectedDay.checks[i] ? 'var(--text-muted)' : 'var(--text)' }} />
-                  {(i >= 5 || !task.trim()) && (
-                    <button className="task-remove-btn" onClick={() => removeTask(calSelected, i)}>×</button>
-                  )}
-                </div>
-              ))}
-              <button className="task-add-btn" onClick={() => addTask(calSelected)}>{t(lang, 'agenda.addTask')}</button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {selectedDay.eventos.map(ev => renderEvento(calSelected, ev))}
+              </div>
+              {formKey === calSelected ? renderForm(calSelected) : (
+                <button className="task-add-btn" onClick={() => abrirForm(calSelected)} style={{ marginTop: 12 }}>+ Novo evento</button>
+              )}
               <textarea value={selectedDay.notas} placeholder={t(lang, 'agenda.notesPlaceholder')}
                 onChange={e => updateNotas(calSelected, e.target.value)}
-                style={{ marginTop: 8, fontSize: 12, minHeight: 50, color: 'var(--text-muted)' }} />
+                style={{ marginTop: 16, fontSize: 12, minHeight: 50, color: 'var(--text-muted)' }} />
             </div>
           )}
         </>
       ) : (
-        /* ── VISÃO SEMANAL ── */
         <>
-      {/* Navegação de semana */}
-      <div className="week-nav">
-        <button onClick={prevWeek}>‹</button>
-        <span>{weekLabel}</span>
-        <button onClick={nextWeek}>›</button>
-        <button onClick={goToday} style={{ marginLeft: 8, fontSize: 12, color: 'var(--accent)', borderColor: 'var(--accent)' }}>
-          {t(lang, 'agenda.today')}
-        </button>
-      </div>
+          <div className="week-nav">
+            <button onClick={prevWeek}>‹</button>
+            <span>{weekLabel}</span>
+            <button onClick={nextWeek}>›</button>
+            <button onClick={goToday} style={{ marginLeft: 8, fontSize: 12, color: 'var(--accent)', borderColor: 'var(--accent)' }}>{t(lang, 'agenda.today')}</button>
+          </div>
 
-      {/* Grade semanal */}
-      <div className="week-grid">
-        {days.map(({ label, date, key }) => {
-          const day = getDay(key)
-          const isToday = fmtKey(date) === fmtKey(today)
-          const feitas = day.checks.filter(Boolean).length
-          const total  = day.tasks.filter(t => t.trim()).length
-          return (
-            <div key={key} className={`day-col ${isToday ? 'today' : ''}`}>
-              <div className="day-name">{label}</div>
-              <div className="day-date">{date.getDate()}</div>
-              {total > 0 && (
-                <div style={{ fontSize: 10, color: feitas === total ? 'var(--green)' : 'var(--text-muted)', marginBottom: 6, fontWeight: 600 }}>
-                  {feitas}/{total} ✓
-                </div>
-              )}
-
-              {/* Linhas de tarefas — dinâmicas */}
-              {day.tasks.map((task, i) => (
-                <div key={i} className="task-input">
-                  <input
-                    type="checkbox"
-                    checked={day.checks[i]}
-                    onChange={() => toggleCheck(key, i)}
-                    style={{ width: 14, height: 14, accentColor: 'var(--accent)', cursor: 'pointer', flexShrink: 0 }}
-                  />
-                  <input
-                    type="text"
-                    value={task}
-                    placeholder={`${t(lang, 'agenda.task')} ${i + 1}`}
-                    onChange={e => updateTask(key, i, e.target.value)}
-                    style={{
-                      textDecoration: day.checks[i] ? 'line-through' : 'none',
-                      color: day.checks[i] ? 'var(--text-muted)' : 'var(--text)',
-                    }}
-                  />
-                  {/* Botão remover — só mostra se linha está vazia OU no hover (via CSS não é possível aqui, então mostra sempre em linhas além da 5ª ou se vazia) */}
-                  {(i >= 5 || !task.trim()) && (
-                    <button
-                      className="task-remove-btn"
-                      onClick={() => removeTask(key, i)}
-                      title={t(lang,'agenda.removeRow')}
-                    >
-                      ×
-                    </button>
+          <div className="week-grid">
+            {days.map(({ label, date, key }) => {
+              const day = normAgendaDay(data.agenda[key])
+              const isToday = fmtKey(date) === fmtKey(today)
+              const total = day.eventos.length
+              const feitas = day.eventos.filter(e => e.concluida).length
+              return (
+                <div key={key} className={`day-col ${isToday ? 'today' : ''}`}>
+                  <div className="day-name">{label}</div>
+                  <div className="day-date">{date.getDate()}</div>
+                  {total > 0 && (
+                    <div style={{ fontSize: 10, color: feitas === total ? 'var(--green)' : 'var(--text-muted)', marginBottom: 10, fontWeight: 600 }}>
+                      {feitas}/{total} ✓
+                    </div>
                   )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                    {day.eventos.map(ev => renderEvento(key, ev))}
+                  </div>
+                  {formKey === key ? renderForm(key) : (
+                    <button className="task-add-btn" onClick={() => abrirForm(key)}>+ Novo</button>
+                  )}
+                  <textarea value={day.notas} placeholder={t(lang, 'agenda.notesPlaceholder')}
+                    onChange={e => updateNotas(key, e.target.value)}
+                    style={{ marginTop: 12, fontSize: 12, minHeight: 50, color: 'var(--text-muted)' }} />
                 </div>
-              ))}
-
-              {/* Botão adicionar tarefa */}
-              <button className="task-add-btn" onClick={() => addTask(key)}>
-                {t(lang, 'agenda.addTask')}
-              </button>
-
-              <textarea
-                value={day.notas}
-                placeholder={t(lang, 'agenda.notesPlaceholder')}
-                onChange={e => updateNotas(key, e.target.value)}
-                style={{ marginTop: 8, fontSize: 12, minHeight: 50, color: 'var(--text-muted)' }}
-              />
-            </div>
-          )
-        })}
-      </div>
+              )
+            })}
+          </div>
         </>
       )}
     </>

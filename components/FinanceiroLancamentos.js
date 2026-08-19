@@ -260,15 +260,13 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
     // evitando que receitas duplicadas alimentem o projeto por engano.
     update('financeiro', [...lancamentos, {
       ...base,
-      id: Date.now(),
-      origem: base.origem === 'Trabalho' ? 'Pessoal' : base.origem,
+      id: String(Date.now()),
+      origem: 'Pessoal',
       projeto: '',
       status: l.tipo === 'Receita' ? 'Prevista' : 'Pendente',
       pago: false,
       recorrente: false,
       recorrenciaGrupoId: '',
-      origem: 'Pessoal',
-      projeto: '',
     }])
     showFeedback(t(lang, 'lanc.duplicated'))
   }
