@@ -65,23 +65,20 @@ function gerarCodigo(contador) {
 }
 
 // ── Componente Principal ──
-export default function TrabalhoProjetos({ data, update, lang, projetoSelecionadoId, onVoltar }) {
+export default function TrabalhoProjetos({ data, update, lang = 'pt' }) {
   const projetos = data.projetos || []
-  const projetoContador = data.projetoContador || 0
-
-  const [view, setView] = useState(projetoSelecionadoId ? 'detail' : 'list') // 'list' | 'form' | 'detail'
-  const [projetoId, setProjetoId] = useState(projetoSelecionadoId || null)
-  const [form, setForm] = useState({ ...EMPTY_PROJETO })
-  const [editId, setEditId] = useState(null)
-  const [feedback, setFeedback] = useState('')
+  const [view, setView] = useState('list') // 'list' | 'form' | 'detail' | 'dashboard'
+  const [selectedId, setSelectedId] = useState(null)
+  const [busca, setBusca] = useState('')
   const [filtroStatus, setFiltroStatus] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
-  const [busca, setBusca] = useState('')
-  const [projetoParaExcluir, setProjetoParaExcluir] = useState(null)
+  const [filtroCliente, setFiltroCliente] = useState('')
+  const [ordenarPor, setOrdenarPor] = useState('dataInicio')
+  const [ordenarDir, setOrdenarDir] = useState('desc')
 
   const showFeedback = (msg) => { setFeedback(msg); setTimeout(() => setFeedback(''), 2500) }
 
-  const projetoAtual = projetos.find(p => p.id === projetoId)
+  const projetoAtual = projetos.find(p => p.id === selectedId)
 
   // ── Filtros ──
   const projetosFiltrados = useMemo(() => {

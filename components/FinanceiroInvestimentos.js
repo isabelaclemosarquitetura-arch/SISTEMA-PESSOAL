@@ -58,6 +58,32 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
       porTipo: Object.entries(porTipo).map(([tipo, total]) => ({ tipo, total })).sort((a, b) => b.total - a.total),
     }
   }, [investimentos, linhas])
+  
+  // Evolução mensal dos investimentos
+  const evolucaoMensal = useMemo(() => {
+    const meses = []
+    const hoje = new Date()
+    
+    for (let i = 11; i >= 0; i--) {
+      const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1)
+      const key = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`
+      
+      let valorTotal = 0
+      investimentos.forEach(inv => {
+        if (inv.dataInvestimento && inv.dataInvestimento <= key) {
+          const mesesDesdeInvestimento = (data.getFullYear() - new Date(inv.dataInvestimento).getFullYear()) * 12 + (data.getMonth() - new Date(inv.dataInvestimento).getMonth())
+          const calc = calcularValorAtualInvestimento(inv, configCDI.taxaAnual, data)
+          valorTotal += calc.valorAtual
+        }
+      })
+      
+      meses.push({ mes: data.toLocaleDateString(locale, { month: 'short' }), valor: valorTotal, key })
+    }
+    
+    return meses
+  }, [investimentos, configCDI.taxaAnual, locale])
+  
+  const maxEvolucao = Math.max(1, ...evolucaoMensal.map(m => m.valor))
 
   const maxInvestTipo = Math.max(1, ...carteira.porTipo.map(i => i.total))
 
@@ -190,6 +216,31 @@ export default function FinanceiroInvestimentos({ data, update, lang = 'pt' }) {
         <div className="card">
           <div className="card-title">{t(lang,'inv.monthlyContrib')}</div>
           <div className="stat-value" style={{ color: 'var(--accent)', fontSize: 19 }}>{fmt(carteira.aporteMensalPlanejado)}</div>
+        </div>
+      </div>
+      
+      {/* Gráfico de evolução mensal */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-title">Evolução Mensal (12 meses)</div>
+        <div className="monthly-chart">
+          {evolucaoMensal.map((item, idx) => (
+            <div key={item.key} className="monthly-group" style={{ flex: 1 }}>
+              <div className="monthly-bars" style={{ display: 'flex', alignItems: 'flex-end', height: 120, justifyContent: 'center' }}>
+                <span 
+                  className="income" 
+                  style={{ 
+                    height: `${Math.max(4, (item.valor / maxEvolucao) * 100)}%`,
+                    background: 'linear-gradient(135deg, var(--accent), var(--accent-dark))',
+                    borderRadius: 4,
+                    width: '60%',
+                    transition: 'height 0.3s ease'
+                  }} 
+                  title={`Valor: ${fmt(item.valor)}`}
+                />
+              </div>
+              <div className="monthly-label" style={{ fontSize: 11, marginTop: 6, textAlign: 'center' }}>{item.mes}</div>
+            </div>
+          ))}
         </div>
       </div>
 

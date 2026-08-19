@@ -114,8 +114,13 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const despesasPorCategoria = useMemo(() => {
     const totals = {}
     lancMes.filter(l => l.tipo === 'Despesa').forEach(l => { const k = l.categoria || 'Sem categoria'; totals[k] = (totals[k] || 0) + moneyNumber(l.valor) })
-    return Object.entries(totals).map(([categoria, total]) => ({ categoria, total })).sort((a, b) => b.total - a.total)
-  }, [lancMes])
+    return Object.entries(totals).map(([categoria, total]) => {
+      const limite = moneyNumber(orcamentos[categoria] || 0)
+      const pct = limite > 0 ? (total / limite) * 100 : 0
+      const alerta = limite > 0 && (pct >= 90 ? 'danger' : pct >= 70 ? 'warning' : 'ok')
+      return { categoria, total, limite, pct, alerta }
+    }).sort((a, b) => b.total - a.total)
+  }, [lancMes, orcamentos])
   
   // Grouping logic
   const groupedLancamentos = useMemo(() => {
@@ -508,8 +513,53 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
             </select>
           </div>
           <div className="form-group filter-card-select"><label>{t(lang, 'lanc.card').replace(' *', '')}</label><select value={cartaoFiltro} onChange={e => setCartaoFiltro(e.target.value)}><option value="">{t(lang, 'lanc.allCards')}</option><option value="__nocard__">{t(lang, 'lanc.noCard')}</option>{cartoesUsados.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} title="Filtros avançados">⚙️</button>
         </div>
       </div>
+      {showAdvancedFilters && (
+        <div className="card" style={{ marginBottom: 16, padding: 12 }}>
+          <div className="card-title" style={{ marginBottom: 8 }}>Filtros Avançados</div>
+          <div className="form-row" style={{ flexWrap: 'wrap' }}>
+            <div className="form-group" style={{ maxWidth: 120 }}>
+              <label>Valor Mín</label>
+              <input type="number" value={valorMin} onChange={e => setValorMin(e.target.value)} placeholder="0" min="0" step="0.01" />
+            </div>
+            <div className="form-group" style={{ maxWidth: 120 }}>
+              <label>Valor Máx</label>
+              <input type="number" value={valorMax} onChange={e => setValorMax(e.target.value)} placeholder="∞" min="0" step="0.01" />
+            </div>
+            <div className="form-group" style={{ maxWidth: 140 }}>
+              <label>Status</label>
+              <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value)}>
+                <option value="">Todos</option>
+                <option value="Pendente">Pendente</option>
+                <option value="Pago">Pago</option>
+                <option value="Parcial">Parcial</option>
+                <option value="Vencido">Vencido</option>
+                <option value="Prevista">Prevista</option>
+                <option value="Recebida">Recebida</option>
+              </select>
+            </div>
+            <div className="form-group" style={{ maxWidth: 150 }}>
+              <label>Data Início</label>
+              <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ maxWidth: 150 }}>
+              <label>Data Fim</label>
+              <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ maxWidth: 140 }}>
+              <label>Agrupar por</label>
+              <select value={groupBy} onChange={e => setGroupBy(e.target.value)}>
+                <option value="none">Não agrupar</option>
+                <option value="categoria">Categoria</option>
+                <option value="mes">Mês</option>
+              </select>
+            </div>
+            <button className="btn btn-ghost btn-sm" onClick={() => { setValorMin(''); setValorMax(''); setStatusFiltro(''); setDataInicio(''); setDataFim(''); setGroupBy('none') }}>Limpar filtros</button>
+          </div>
+        </div>
+      )}
       <div className="grid-4" style={{ marginBottom: 20 }}>
         <div className="card"><div className="card-title">{t(lang, 'lanc.currentBalance')}</div><div className="stat-value" style={{ color: saldoAtual >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 20 }}>{fmt(saldoAtual)}</div><div className="muted-small">{t(lang, 'lanc.recMinusPaid')}</div></div>
         <div className="card"><div className="card-title">{t(lang, 'lanc.projectedBalance')}</div><div className="stat-value" style={{ color: saldoPrevisto >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 20 }}>{fmt(saldoPrevisto)}</div><div className={`trend ${deltaSaldo >= 0 ? 'positive' : 'negative'}`}>{deltaSaldo >= 0 ? '↑' : '↓'} {fmt(Math.abs(deltaSaldo))} vs. {mesAnterior}</div></div>
@@ -634,10 +684,30 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
       <div className="grid-2" style={{ marginBottom: 20 }}>
         <div className="card">
           <div className="card-title">{t(lang, 'lanc.expByCat', mesFiltro)}</div>
+          {/* Alertas de limite de gasto */}
+          {despesasPorCategoria.filter(item => item.alerta === 'danger').length > 0 && (
+            <div style={{ padding: '10px 12px', background: 'rgba(201,66,66,0.1)', border: '1px solid var(--red)', borderRadius: 8, marginBottom: 12 }}>
+              <div style={{ color: 'var(--red)', fontWeight: 600, fontSize: 13 }}>⚠️ Atenção: {despesasPorCategoria.filter(item => item.alerta === 'danger').length} categorias acima de 90% do orçamento!</div>
+            </div>
+          )}
+          {despesasPorCategoria.filter(item => item.alerta === 'warning').length > 0 && (
+            <div style={{ padding: '10px 12px', background: 'rgba(204,152,24,0.1)', border: '1px solid var(--yellow)', borderRadius: 8, marginBottom: 12 }}>
+              <div style={{ color: 'var(--yellow)', fontWeight: 600, fontSize: 13 }}>⚡ Alerta: {despesasPorCategoria.filter(item => item.alerta === 'warning').length} categorias acima de 70% do orçamento</div>
+            </div>
+          )}
           {despesasPorCategoria.length === 0 ? <p className="muted-small">{t(lang, 'lanc.noneInPeriod')}</p> : despesasPorCategoria.map(item => {
             const orcLimite = moneyNumber(orcamentos[item.categoria]); const pctOrc = orcLimite > 0 ? Math.min(100, (item.total / orcLimite) * 100) : null; const fc = pctOrc === null ? '' : pctOrc >= 90 ? 'danger' : pctOrc >= 70 ? 'warn' : 'ok'
             return (<div key={item.categoria} className="bar-row">
-              <div className="bar-row-label"><span>{item.categoria}</span><div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{pctOrc !== null && <span className={`budget-pct-badge ${fc}`}>{Math.round(pctOrc)}%</span>}<strong>{fmt(item.total)}</strong>{orcLimite > 0 && <span className="muted-small">/ {fmt(orcLimite)}</span>}</div></div>
+              <div className="bar-row-label">
+                <span>{item.categoria}</span>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {pctOrc !== null && <span className={`budget-pct-badge ${fc}`}>{Math.round(pctOrc)}%</span>}
+                  <strong>{fmt(item.total)}</strong>
+                  {orcLimite > 0 && <span className="muted-small">/ {fmt(orcLimite)}</span>}
+                  {item.alerta === 'danger' && <span style={{ color: 'var(--red)', fontSize: 16 }}>🔴</span>}
+                  {item.alerta === 'warning' && <span style={{ color: 'var(--yellow)', fontSize: 16 }}>🟡</span>}
+                </div>
+              </div>
               <div className="chart-track"><div className="chart-fill neutral" style={{ width: `${(item.total / maxCategoria) * 100}%` }} /></div>
               {pctOrc !== null && <div className="budget-bar-wrap"><div className="budget-bar-track"><div className={`budget-bar-fill ${fc}`} style={{ width: `${pctOrc}%` }} /></div></div>}
             </div>)
@@ -662,25 +732,48 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
           <div className="table-wrap"><table>
             <thead><tr><th>{t(lang, 'lanc.typeCol')}</th><th>{t(lang, 'lanc.catCol')}</th><th>{t(lang, 'lanc.payCol')}</th><th>{t(lang, 'lanc.descCol')}</th><th>{t(lang, 'lanc.valueCol')}</th><th>{t(lang, 'lanc.dateCol')}</th><th>Parcela</th><th>{t(lang, 'lanc.statusCol')}</th><th></th></tr></thead>
             <tbody>{(() => {
-              const agrupado = g => lancMes.filter(l => l.tipo === g).sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || ''))
-              const despesas = agrupado('Despesa')
-              const receitas = agrupado('Receita')
-              return (
-                <>
-                  {despesas.length > 0 && (
-                    <>
-                      <tr className="table-section-row"><td colSpan={9}><span className="table-section-label table-section-expense">💸 Despesas <small>{despesas.length}</small></span></td></tr>
-                      {despesas.map(renderLancRow)}
-                    </>
-                  )}
-                  {receitas.length > 0 && (
-                    <>
-                      <tr className="table-section-row"><td colSpan={9}><span className="table-section-label table-section-income">💰 Receitas <small>{receitas.length}</small></span></td></tr>
-                      {receitas.map(renderLancRow)}
-                    </>
-                  )}
-                </>
-              )
+              if (groupBy === 'none') {
+                // Renderização padrão por tipo (Despesas/Receitas)
+                const agrupado = g => lancMes.filter(l => l.tipo === g).sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || ''))
+                const despesas = agrupado('Despesa')
+                const receitas = agrupado('Receita')
+                return (
+                  <>
+                    {despesas.length > 0 && (
+                      <>
+                        <tr className="table-section-row"><td colSpan={9}><span className="table-section-label table-section-expense">💸 Despesas <small>{despesas.length}</small></span></td></tr>
+                        {despesas.map(renderLancRow)}
+                      </>
+                    )}
+                    {receitas.length > 0 && (
+                      <>
+                        <tr className="table-section-row"><td colSpan={9}><span className="table-section-label table-section-income">💰 Receitas <small>{receitas.length}</small></span></td></tr>
+                        {receitas.map(renderLancRow)}
+                      </>
+                    )}
+                  </>
+                )
+              } else {
+                // Renderização por grupo (categoria ou mês)
+                const groupKeys = Object.keys(groupedLancamentos).sort()
+                return groupKeys.map(groupKey => {
+                  const items = groupedLancamentos[groupKey].sort((a, b) => (a.vencimento || '').localeCompare(b.vencimento || ''))
+                  const groupTotal = items.reduce((s, l) => s + moneyNumber(l.valor), 0)
+                  return (
+                    <React.Fragment key={groupKey}>
+                      <tr className="table-section-row">
+                        <td colSpan={9}>
+                          <span className="table-section-label">
+                            {groupBy === 'categoria' ? `📁 ${groupKey}` : `📅 ${groupKey}`}
+                            <small style={{ marginLeft: 8, color: 'var(--text-muted)' }}>{items.length} itens · Total: {fmt(groupTotal)}</small>
+                          </span>
+                        </td>
+                      </tr>
+                      {items.map(renderLancRow)}
+                    </React.Fragment>
+                  )
+                })
+              }
             })()}</tbody>
           </table></div>
         )}

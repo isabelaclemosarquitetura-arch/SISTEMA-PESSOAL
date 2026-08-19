@@ -54,7 +54,7 @@ export default function Agenda({ data, update, lang = 'pt' }) {
   const locale         = lang === 'en' ? 'en-US'        : 'pt-BR'
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  const [view, setView] = useState('semana')
+  const [view, setView] = useState('semana') // 'semana' | 'mes'
   const [weekStart, setWeekStart] = useState(getMondayOf(today))
   const [calYear, setCalYear] = useState(today.getFullYear())
   const [calMonth, setCalMonth] = useState(today.getMonth())
@@ -74,6 +74,44 @@ export default function Agenda({ data, update, lang = 'pt' }) {
   const nextWeek  = () => setWeekStart(addDays(weekStart,  7))
   const goToday   = () => setWeekStart(getMondayOf(today))
   const weekLabel = `${fmtLabel(weekStart, locale)} – ${fmtLabel(addDays(weekStart, 6), locale)}`
+  
+  // Navegação mensal
+  const prevMonth = () => {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(calYear - 1) }
+    else { setCalMonth(calMonth - 1) }
+  }
+  const nextMonth = () => {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(calYear + 1) }
+    else { setCalMonth(calMonth + 1) }
+  }
+  const goTodayMonth = () => { setCalMonth(today.getMonth()); setCalYear(today.getFullYear()) }
+  
+  // Gerar dias do mês
+  const monthDays = useMemo(() => {
+    const firstDay = new Date(calYear, calMonth, 1)
+    const lastDay = new Date(calYear, calMonth + 1, 0)
+    const startDayOfWeek = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1 // 0=Domingo, 6=Sábado
+    const days = []
+    
+    // Dias vazios antes do primeiro dia do mês
+    for (let i = 0; i < startDayOfWeek; i++) {
+      days.push({ empty: true })
+    }
+    
+    // Dias do mês
+    for (let d = 1; d <= lastDay.getDate(); d++) {
+      const date = new Date(calYear, calMonth, d)
+      const key = fmtKey(date)
+      const isToday = date.getTime() === today.getTime()
+      const dayData = data.agenda?.[key]
+      const norm = normAgendaDay(dayData)
+      const hasEvents = norm.eventos.length > 0
+      const hasUnfinished = norm.eventos.some(e => !e.concluida)
+      days.push({ date, key, isToday, hasEvents, hasUnfinished })
+    }
+    
+    return days
+  }, [calYear, calMonth, data.agenda, today])
 
   // Backlog: atrasados até ontem
   const backlog = useMemo(() => {

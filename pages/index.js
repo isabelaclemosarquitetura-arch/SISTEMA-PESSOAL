@@ -219,6 +219,46 @@ export default function Home() {
     setSavedIndicator(true)
     savedTimerRef.current = setTimeout(() => setSavedIndicator(false), 1500)
   }
+  
+  // Undo/Redo básico
+  const [history, setHistory] = useState([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+  
+  const addToHistory = (newData) => {
+    const newHistory = history.slice(0, historyIndex + 1)
+    newHistory.push(JSON.stringify(newData))
+    if (newHistory.length > 20) newHistory.shift() // Limitar a 20 estados
+    setHistory(newHistory)
+    setHistoryIndex(newHistory.length - 1)
+  }
+  
+  const undo = () => {
+    if (historyIndex > 0) {
+      const prevState = JSON.parse(history[historyIndex - 1])
+      setData(prevState)
+      localStorage.setItem('sp_data', JSON.stringify(prevState))
+      setHistoryIndex(historyIndex - 1)
+      setSettingsFeedback('Desfeito!')
+      setTimeout(() => setSettingsFeedback(''), 2000)
+    }
+  }
+  
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      const nextState = JSON.parse(history[historyIndex + 1])
+      setData(nextState)
+      localStorage.setItem('sp_data', JSON.stringify(nextState))
+      setHistoryIndex(historyIndex + 1)
+      setSettingsFeedback('Refeito!')
+      setTimeout(() => setSettingsFeedback(''), 2000)
+    }
+  }
+  
+  // Sobrescrever save para adicionar ao histórico
+  const saveWithHistory = (newData) => {
+    addToHistory(newData)
+    save(newData)
+  }
 
   const update = (section, value) => {
     let newData = typeof section === 'object'
@@ -227,7 +267,7 @@ export default function Home() {
     if ((typeof section === 'string' && section === 'financeiro') || (typeof section === 'object' && section.financeiro)) {
       newData = { ...newData, financeiro: ensureRecorrencias(newData.financeiro) }
     }
-    save(newData)
+    saveWithHistory(newData)
   }
 
   const exportBackup = () => {
@@ -390,6 +430,18 @@ export default function Home() {
                 <button className="settings-action-btn" onClick={toggleDark}>
                   {darkMode ? t(lang, 'lightMode') : t(lang, 'darkMode')}
                 </button>
+              </div>
+
+              <div className="settings-section">
+                <div className="settings-label">Ações</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="settings-action-btn" onClick={undo} disabled={historyIndex <= 0} style={{ opacity: historyIndex <= 0 ? 0.5 : 1 }}>
+                    ↩ Desfazer
+                  </button>
+                  <button className="settings-action-btn" onClick={redo} disabled={historyIndex >= history.length - 1} style={{ opacity: historyIndex >= history.length - 1 ? 0.5 : 1 }}>
+                    ↪ Refazer
+                  </button>
+                </div>
               </div>
 
               <div className="settings-section">
