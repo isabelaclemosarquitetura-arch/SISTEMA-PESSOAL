@@ -3,7 +3,8 @@ import { t } from '../lib/i18n'
 import {
   MESES, CATEGORIAS_RECEITA, CATEGORIAS_DESPESA, FORMAS_PAGAMENTO, TIPOS_RECORRENCIA,
   fmt, moneyNumber, sugerirCategoria, hojeISO, mesDeISO, mesLancamento, fmtDataBR, gerarParcelas,
-  isDespesaPaga, isReceitaRecebida, isReceitaParcial, valorRecebidoLancamento,
+  isDespesaPaga, isDespesaParcial, valorPagoLancamento, valorRestanteLancamento,
+  isReceitaRecebida, isReceitaParcial, valorRecebidoLancamento,
   valorPendenteLancamento, isDespesaVencida, origemLancamento,
 } from '../lib/finance'
 
@@ -14,10 +15,11 @@ const EMPTY_FORM = {
   status: 'Pendente', observacao: '', parcela: '', vencimento: '',
   formaPagamento: 'Dinheiro', cartao: '',
   recorrente: false, recorrenciaTipo: 'Mensal', recorrenciaIntervaloDias: '',
-  parcelado: false, qtdParcelas: '', pagamentoAutomatico: false, projeto: ''
+  parcelado: false, qtdParcelas: '', pagamentoAutomatico: false, projeto: '',
+  valorPago: '', dataPagamento: '', historicoPagamentos: []
 }
 
-const STATUS_DESPESA = ['Pendente', 'Pago', 'Vencido', 'Pago automaticamente']
+const STATUS_DESPESA = ['Pendente', 'Pago', 'Vencido', 'Pago automaticamente', 'Parcial']
 const STATUS_RECEITA = ['Prevista', 'Parcial', 'Recebida']
 
 function sum(items, tipo) { return items.filter(l => l.tipo === tipo).reduce((s, l) => s + (parseFloat(l.valor) || 0), 0) }
@@ -44,6 +46,17 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const [showOrcamento, setShowOrcamento] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
+  
+  // Filtros avançados
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [valorMin, setValorMin] = useState('')
+  const [valorMax, setValorMax] = useState('')
+  const [statusFiltro, setStatusFiltro] = useState('')
+  const [dataInicio, setDataInicio] = useState('')
+  const [dataFim, setDataFim] = useState('')
+  
+  // Grouping
+  const [groupBy, setGroupBy] = useState('none') // 'none', 'categoria', 'mes'
 
   const lancamentos = data.financeiro || []
   const orcamentos = data.orcamentoCategoria || {}
@@ -73,7 +86,19 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
     ? lancMesCartao
     : lancMesCartao.filter(l => origemLancamento(l) === origemFiltro)
                         
-  const lancMes = busca ? lancMesOrigem.filter(l => l.descricao?.toLowerCase().includes(busca.toLowerCase()) || l.categoria?.toLowerCase().includes(busca.toLowerCase())) : lancMesOrigem
+  const lancMesBusca = busca ? lancMesOrigem.filter(l => l.descricao?.toLowerCase().includes(busca.toLowerCase()) || l.categoria?.toLowerCase().includes(busca.toLowerCase())) : lancMesOrigem
+  
+  // Filtros avançados
+  const lancMesFiltrados = lancMesBusca.filter(l => {
+    if (valorMin && moneyNumber(l.valor) < Number(valorMin)) return false
+    if (valorMax && moneyNumber(l.valor) > Number(valorMax)) return false
+    if (statusFiltro && l.status !== statusFiltro) return false
+    if (dataInicio && l.vencimento && l.vencimento < dataInicio) return false
+    if (dataFim && l.vencimento && l.vencimento > dataFim) return false
+    return true
+  })
+  
+  const lancMes = lancMesFiltrados
 
   const receitas = sum(lancMes, 'Receita'), despesas = sum(lancMes, 'Despesa'), saldoPrevisto = receitas - despesas
   const receitasRecebidas = lancMes.reduce((s, l) => s + valorRecebidoLancamento(l), 0)
@@ -91,6 +116,24 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
     lancMes.filter(l => l.tipo === 'Despesa').forEach(l => { const k = l.categoria || 'Sem categoria'; totals[k] = (totals[k] || 0) + moneyNumber(l.valor) })
     return Object.entries(totals).map(([categoria, total]) => ({ categoria, total })).sort((a, b) => b.total - a.total)
   }, [lancMes])
+  
+  // Grouping logic
+  const groupedLancamentos = useMemo(() => {
+    if (groupBy === 'none') return { '': lancMes }
+    
+    const groups = {}
+    lancMes.forEach(l => {
+      let key = ''
+      if (groupBy === 'categoria') {
+        key = l.categoria || 'Sem categoria'
+      } else if (groupBy === 'mes') {
+        key = mesLancamento(l)
+      }
+      if (!groups[key]) groups[key] = []
+      groups[key].push(l)
+    })
+    return groups
+  }, [lancMes, groupBy])
 
   const resumoCartoes = useMemo(() => {
     const totals = {}
@@ -274,7 +317,7 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
   const toggleStatus = (l) => {
     if (l.tipo === 'Despesa') {
       const ns = (l.status === 'Pago' || l.status === 'Pago automaticamente') ? 'Pendente' : 'Pago'
-      update('financeiro', lancamentos.map(x => x.id === l.id ? { ...x, status: ns, pago: ns === 'Pago' } : x))
+      update('financeiro', lancamentos.map(x => x.id === l.id ? { ...x, status: ns, pago: ns === 'Pago', valorPago: ns === 'Pago' ? moneyNumber(x.valor) : 0 } : x))
     } else {
       const ns = isReceitaRecebida(l) ? 'Prevista' : 'Recebida'
       const dataRecebimento = ns === 'Recebida' ? hojeISO() : ''
@@ -296,6 +339,37 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
         update('financeiro', financeiroAtualizado)
       }
     }
+  }
+
+  const registrarPagamentoParcial = (l, valorPagamento) => {
+    const valorPag = Number(valorPagamento)
+    if (!valorPag || valorPag <= 0) return
+    
+    const valorTotal = moneyNumber(l.valor)
+    const pagoAtual = valorPagoLancamento(l)
+    const novoPago = pagoAtual + valorPag
+    const dataPag = hojeISO()
+    
+    const historico = l.historicoPagamentos || []
+    historico.push({ valor: valorPag, data: dataPag })
+    
+    let novoStatus = l.status
+    if (novoPago >= valorTotal) {
+      novoStatus = 'Pago'
+    } else {
+      novoStatus = 'Parcial'
+    }
+    
+    update('financeiro', lancamentos.map(x => x.id === l.id ? {
+      ...x,
+      status: novoStatus,
+      pago: novoStatus === 'Pago',
+      valorPago: novoPago,
+      dataPagamento: dataPag,
+      historicoPagamentos: historico
+    } : x))
+    
+    showFeedback(`Pagamento de ${fmt(valorPag)} registrado!`)
   }
   const pararRecorrencia = (l) => { update('financeiro', lancamentos.map(x => x.recorrenciaGrupoId === l.recorrenciaGrupoId ? { ...x, recorrenciaAtiva: false } : x)); showFeedback(t(lang, 'lanc.recurrStopped')) }
 
@@ -319,9 +393,12 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
     const isVencido = isDespesaVencida(l)
     const isEntrada = l.tipo === 'Receita'
     const isSettled = isEntrada ? isReceitaRecebida(l) : isDespesaPaga(l)
+    const isParcial = isEntrada ? isReceitaParcial(l) : isDespesaParcial(l)
     const rowClass = isEntrada ? 'row-income' : isVencido ? 'row-overdue' : ''
     const valorColor = isEntrada ? 'var(--green)' : (isVencido ? 'var(--red)' : 'inherit')
-    const valorPrincipal = isReceitaParcial(l) ? valorPendenteLancamento(l) : moneyNumber(l.valor)
+    const valorPrincipal = isParcial ? (isEntrada ? valorPendenteLancamento(l) : valorRestanteLancamento(l)) : moneyNumber(l.valor)
+    const valorPago = isEntrada ? valorRecebidoLancamento(l) : valorPagoLancamento(l)
+    
     return (
       <tr key={l.id} className={rowClass}>
         <td><span className={`badge ${l.tipo === 'Receita' ? 'badge-green' : 'badge-red'}`}>{l.tipo}</span></td>
@@ -344,7 +421,11 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
         </td>
         <td style={{ fontWeight: 600, color: valorColor, whiteSpace: 'nowrap' }}>
           {fmt(valorPrincipal)}
-          {isReceitaParcial(l) && <div className="muted-small">Recebido: {fmt(valorRecebidoLancamento(l))}</div>}
+          {isParcial && (
+            <div className="muted-small">
+              {isEntrada ? `Recebido: ${fmt(valorPago)}` : `Pago: ${fmt(valorPago)}`}
+            </div>
+          )}
         </td>
         <td className="muted-cell" style={{ whiteSpace: 'nowrap' }}>{fmtDataBR(l.vencimento)}</td>
         <td className="muted-cell" style={{ whiteSpace: 'nowrap' }}>{l.parcela || '—'}</td>
@@ -357,6 +438,12 @@ export default function FinanceiroLancamentos({ data, update, lang = 'pt' }) {
         <td className="table-actions">
           <button className="btn btn-ghost btn-sm btn-act" title={t(lang, 'lanc.edit')} onClick={() => handleEdit(l)}>{t(lang, 'lanc.edit')}</button>
           <button className="btn btn-ghost btn-sm btn-act" title={t(lang, 'lanc.duplicate')} onClick={() => handleDuplicate(l)}>{t(lang, 'lanc.duplicate')}</button>
+          {l.tipo === 'Despesa' && !isSettled && (
+            <button className="btn btn-ghost btn-sm btn-act" title="Pagamento parcial" onClick={() => {
+              const valor = prompt(`Valor do pagamento (Total: ${fmt(moneyNumber(l.valor))}):`)
+              if (valor) registrarPagamentoParcial(l, valor)
+            }}>💰</button>
+          )}
           {l.recorrenciaGrupoId && l.recorrenciaAtiva !== false && <button className="btn btn-ghost btn-sm btn-act" onClick={() => pararRecorrencia(l)}>{t(lang, 'lanc.stopRec')}</button>}
           <button className="btn btn-danger btn-sm btn-act" title={t(lang, 'lanc.delete')} onClick={() => setDeleteTarget(l)}>{t(lang, 'lanc.delete')}</button>
         </td>
